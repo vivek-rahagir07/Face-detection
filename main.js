@@ -270,7 +270,7 @@ async function startQRRotation() {
                         if (err) throw err;
                         qrImage.src = url;
                         qrImage.style.opacity = "1";
-                        qrStatus.innerText = "Code is live. Scan now.";
+                        qrStatus.innerHTML = "[PRO] Code is live. Scan now.";
                         resetTimer(30);
                     });
                 } else {
@@ -280,7 +280,7 @@ async function startQRRotation() {
                     qrImage.src = qrApiUrl;
                     qrImage.onload = () => {
                         qrImage.style.opacity = "1";
-                        qrStatus.innerText = "Live (API Fallback)";
+                        qrStatus.innerHTML = "[PRO] Live (API Fallback)";
                         resetTimer(30);
                     };
                 }
@@ -289,9 +289,14 @@ async function startQRRotation() {
             generateQR();
 
         } catch (e) {
-            console.error("QR Error:", e);
-            qrStatus.innerHTML = `<span style="color:var(--danger)">Sync Fail: ${e.message.split('(')[0]}</span><br><small>Retrying in 5s...</small>`;
-            setTimeout(refreshQR, 5000);
+            console.error("QR Error Stack:", e);
+            qrStatus.innerHTML = `
+                <span style="color:var(--danger); font-weight:800;">SYNC ERROR!</span><br>
+                <small style="color:#ff6666;">Reason: ${e.message.split('(')[0]}</small><br>
+                <button onclick="window.location.reload()" style="margin-top:10px; background:var(--accent); color:#000; border:none; padding:5px 10px; border-radius:5px; font-size:11px; cursor:pointer;">⚠️ Hard Refresh Page</button>
+            `;
+            // Do not auto-retry immediately to avoid loop if it's a permission error
+            setTimeout(refreshQR, 10000);
         }
     };
 
