@@ -89,6 +89,12 @@ const configGeoEnabled = document.getElementById('config-geo-enabled');
 const configGeoRadius = document.getElementById('config-geo-radius');
 const btnSetLocation = document.getElementById('btn-set-location');
 const geoStatus = document.getElementById('geo-status');
+const configVoiceEnabled = document.getElementById('config-voice-enabled');
+
+// HUD Animation State
+let hudScanCycle = 0; // 0 to 1
+let hudScanDir = 1;
+const lastSpoken = {};
 
 let dailyChart = null;
 let hourlyChart = null;
@@ -105,6 +111,15 @@ function updateLiveDateTime() {
 }
 setInterval(updateLiveDateTime, 60000);
 updateLiveDateTime();
+
+function speak(text) {
+    if (!currentSpace || !currentSpace.config || !currentSpace.config.voiceEnabled) return;
+    if (window.speechSynthesis.speaking) return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9;
+    utterance.pitch = 1.1;
+    window.speechSynthesis.speak(utterance);
+}
 
 // Firebase Initialization
 
@@ -739,14 +754,15 @@ async function saveSpaceConfig() {
     if (!currentSpace) return;
     const newConfig = {};
     document.querySelectorAll('.field-toggle').forEach(el => {
-        if (!el.id.includes('geofence')) {
-            newConfig[el.dataset.field] = el.checked;
-        }
+        newConfig[el.dataset.field] = el.checked;
     });
 
-    const geofenceEnabled = document.getElementById('geofence-enabled').checked;
-    const geofenceRadius = parseFloat(document.getElementById('geofence-radius').value) || 100;
-    const locText = document.getElementById('geofence-loc-status').innerText;
+    // Add voice setting to config
+    newConfig.voiceEnabled = configVoiceEnabled.checked;
+
+    const geofenceEnabled = configGeoEnabled.checked;
+    const geofenceRadius = parseFloat(configGeoRadius.value) || 100;
+    const locText = geoStatus.innerText;
     let lat = null, lng = null;
     if (locText.includes('Lat:')) {
         const parts = locText.split(',');
@@ -779,18 +795,19 @@ function syncConfigToggles() {
     if (!currentSpace) return;
     const config = currentSpace.config || {};
     document.querySelectorAll('.field-toggle').forEach(el => {
-        if (!el.id.includes('geofence')) {
-            el.checked = !!config[el.dataset.field];
-        }
+        el.checked = !!config[el.dataset.field];
     });
 
+    // Experience Settings
+    configVoiceEnabled.checked = !!config.voiceEnabled;
+
     const gf = currentSpace.geofencing || {};
-    document.getElementById('geofence-enabled').checked = !!gf.enabled;
-    document.getElementById('geofence-radius').value = gf.radius || 100;
+    configGeoEnabled.checked = !!gf.enabled;
+    configGeoRadius.value = gf.radius || 100;
     if (gf.center) {
-        document.getElementById('geofence-loc-status').innerText = `Lat: ${gf.center.lat.toFixed(6)}, Lng: ${gf.center.lng.toFixed(6)}`;
+        geoStatus.innerText = `Lat: ${gf.center.lat.toFixed(6)}, Lng: ${gf.center.lng.toFixed(6)}`;
     } else {
-        document.getElementById('geofence-loc-status').innerText = "Location not set";
+        geoStatus.innerText = "Location not set";
     }
 }
 
@@ -864,72 +881,71 @@ function startDbListener() {
 
 function drawCustomFaceBox(ctx, box, label, isMatch, confidence) {
     const { x, y, width, height } = box;
-    const color = isMatch ? '#fbbf24' : '#ef4444'; // Yellow for match, Red for unknown/low
+    const color = isMatch ? '#fbbf24' : '#ef4444';
     const cornerSize = 25;
 
     ctx.strokeStyle = color;
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 3;
     ctx.lineCap = 'round';
 
-    // Add a subtle glow
+    // 1. Dynamic Corner Brackets
     ctx.shadowBlur = 10;
     ctx.shadowColor = color;
 
-    // Top Left
-    ctx.beginPath();
-    ctx.moveTo(x, y + cornerSize);
-    ctx.lineTo(x, y);
-    ctx.lineTo(x + cornerSize, y);
-    ctx.stroke();
+    // TL
+    ctx.beginPath(); ctx.moveTo(x, y + cornerSize); ctx.lineTo(x, y); ctx.lineTo(x + cornerSize, y); ctx.stroke();
+    // TR
+    ctx.beginPath(); ctx.moveTo(x + width - cornerSize, y); ctx.lineTo(x + width, y); ctx.lineTo(x + width, y + cornerSize); ctx.stroke();
+    // BL
+    ctx.beginPath(); ctx.moveTo(x, y + height - cornerSize); ctx.lineTo(x, y + height); ctx.lineTo(x + cornerSize, y + height); ctx.stroke();
+    // BR
+    ctx.beginPath(); ctx.moveTo(x + width - cornerSize, y + height); ctx.lineTo(x + width, y + height); ctx.lineTo(x + width, y + height - cornerSize); ctx.stroke();
 
-    // Top Right
-    ctx.beginPath();
-    ctx.moveTo(x + width - cornerSize, y);
-    ctx.lineTo(x + width, y);
-    ctx.lineTo(x + width, y + cornerSize);
-    ctx.stroke();
+    ctx.shadowBlur = 0;
 
-    // Bottom Left
-    ctx.beginPath();
-    ctx.moveTo(x, y + height - cornerSize);
-    ctx.lineTo(x, y + height);
-    ctx.lineTo(x + cornerSize, y + height);
-    ctx.stroke();
+    // 2. Animated Scanning Line (HUD)
+    const scanLineY = y + (height * hudScanCycle);
 
-    // Bottom Right
-    ctx.beginPath();
-    ctx.moveTo(x + width - cornerSize, y + height);
-    ctx.lineTo(x + width, y + height);
-    ctx.lineTo(x + width, y + height - cornerSize);
-    ctx.stroke();
+    const gradient = ctx.createLinearGradient(x, scanLineY, x, scanLineY + 2);
+    gradient.addColorStop(0, 'transparent');
+    gradient.addColorStop(0.5, color);
+    gradient.addColorStop(1, 'transparent');
 
-    ctx.shadowBlur = 0; // Reset shadow
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x + 5, scanLineY, width - 10, 2);
 
-    // Draw Label Box (Corner Positioned)
-    let labelText = '';
-    if (isMatch) {
-        labelText = `${label} (${confidence}%)`;
-    } else if (label === 'unknown') {
-        labelText = 'Unknown Face';
-    } else {
-        labelText = `Low Match (${confidence}%)`;
-    }
-
-    ctx.font = 'bold 12px Inter';
-    const textWidth = ctx.measureText(labelText).width;
-    const padding = 6;
-
-    // Position at Bottom Right corner of box
-    const labelX = x + width - textWidth - padding * 2;
-    const labelY = y + height - 25;
-
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.beginPath();
-    ctx.roundRect(labelX, labelY, textWidth + padding * 2, 22, 4);
-    ctx.fill();
-
+    // 3. Biometric Data Overlays (HUD)
+    ctx.font = '700 9px monospace';
     ctx.fillStyle = color;
-    ctx.fillText(labelText, labelX + padding, labelY + 15);
+
+    // Top-Left Info
+    ctx.fillText(`ID_SCAN: ${isMatch ? label.toUpperCase() : 'SEARCHING...'}`, x + 5, y - 10);
+    // Bottom-Left Info
+    ctx.fillText(`CONF: ${confidence}%`, x + 5, y + height + 15);
+    // Bottom-Right Info
+    ctx.fillText(`STATUS: ${isMatch ? 'VERIFIED' : 'PENDING'}`, x + width - 80, y + height + 15);
+
+    // 4. Label Box (Floating)
+    if (isMatch) {
+        const labelText = label.toUpperCase();
+        ctx.font = '900 12px Inter';
+        const textWidth = ctx.measureText(labelText).width;
+        const padding = 8;
+        const labelX = x + (width / 2) - (textWidth / 2) - padding;
+        const labelY = y + height + 25;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.beginPath();
+        ctx.roundRect(labelX, labelY, textWidth + padding * 2, 22, 4);
+        ctx.fill();
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.fillStyle = color;
+        ctx.fillText(labelText, labelX + padding, labelY + 15);
+    }
 }
 
 function drawFaceMesh(ctx, landmarks) {
@@ -1000,6 +1016,10 @@ video.addEventListener('play', () => {
         const detections = await faceapi.detectAllFaces(video)
             .withFaceLandmarks()
             .withFaceDescriptors();
+
+        // Update HUD animation cycle
+        hudScanCycle += hudScanDir * 0.05; // 5% per frame
+        if (hudScanCycle > 1 || hudScanCycle < 0) hudScanDir *= -1;
 
         const resizedDetections = faceapi.resizeResults(detections, displaySize);
 
@@ -1176,6 +1196,14 @@ async function markAttendance(name) {
     const timeStr = new Date().toLocaleTimeString();
 
     addLiveLogEntry(name, timeStr);
+
+    // Voice Announcement
+    const nowSpoken = Date.now();
+    const lastTimeSpoken = lastSpoken[name] || 0;
+    if (nowSpoken - lastTimeSpoken > 10000) { // 10s cooldown per person for voice
+        speak(`Welcome ${name}`);
+        lastSpoken[name] = nowSpoken;
+    }
 
     const docId = nameToDocId[name];
     if (!docId) return;
