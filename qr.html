@@ -265,15 +265,43 @@
                         lastAttendance: todayStr,
                         attendanceCount: increment(1)
                     });
+
+                    // Save to History
+                    const dateId = new Date().toISOString().split('T')[0];
+                    await addDoc(collection(db, 'attendance'), {
+                        spaceId: spaceId,
+                        userId: userDoc.id,
+                        name: name,
+                        regNo: userData.regNo || '',
+                        course: userData.course || '',
+                        date: dateId,
+                        timestamp: new Date()
+                    });
+                    await updateDoc(doc(db, 'spaces', spaceId), {
+                        [`historyDates.${dateId}`]: true
+                    });
                 } else {
                     // Create minimal entry for QR attendance
-                    await addDoc(collection(db, 'users'), {
+                    const newUserDoc = await addDoc(collection(db, 'users'), {
                         name: name,
                         spaceId: spaceId,
                         lastAttendance: todayStr,
                         attendanceCount: 1,
                         createdAt: new Date().toISOString(),
                         type: 'qr-lite'
+                    });
+
+                    // Save to History
+                    const dateId = new Date().toISOString().split('T')[0];
+                    await addDoc(collection(db, 'attendance'), {
+                        spaceId: spaceId,
+                        userId: newUserDoc.id,
+                        name: name,
+                        date: dateId,
+                        timestamp: new Date()
+                    });
+                    await updateDoc(doc(db, 'spaces', spaceId), {
+                        [`historyDates.${dateId}`]: true
                     });
                 }
 

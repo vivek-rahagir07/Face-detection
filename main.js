@@ -1,13 +1,14 @@
 // Import Firebase Modules (Modular SDK 11.6.1)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, updateDoc, doc, onSnapshot, increment, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, updateDoc, doc, getDoc, onSnapshot, increment, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Configuration & Setup
 
 let db, auth, currentUser;
 const COLL_USERS = 'users';
 const COLL_SPACES = 'spaces';
+const COLL_ATTENDANCE = 'attendance';
 
 // DOM Elements: Portal
 const viewPortal = document.getElementById('view-portal');
@@ -46,6 +47,12 @@ const dynamicFieldsContainer = document.getElementById('dynamic-fields-container
 const configForm = document.getElementById('config-form');
 const attendInfo = document.getElementById('attend-info');
 const regForm = document.getElementById('reg-form');
+const btnHistory = document.getElementById('btn-history');
+const historyModal = document.getElementById('history-modal');
+const btnCloseHistory = document.getElementById('btn-close-history');
+const historyDateSelector = document.getElementById('history-date-selector');
+const historyTableBody = document.getElementById('history-table-body');
+const historyStatus = document.getElementById('history-status');
 // scanStatusOverlay and related elements removed as per request
 
 // State
@@ -239,18 +246,41 @@ async function startQRRotation() {
         const spaceRef = doc(db, COLL_SPACES, currentSpace.id);
 
         try {
+            qrStatus.innerText = "Generating new code...";
+            // Clear old QR to avoid confusion during refresh
+            qrImage.style.opacity = "0.5";
+
             await updateDoc(spaceRef, { qrNonce: currentNonce });
-            // Generate QR link (assuming hosted or local IP)
-            const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '');
+
+            // Robust base URL construction
+            let baseUrl = window.location.href.split('?')[0].split('#')[0].replace('index.html', '');
+            if (!baseUrl.endsWith('/')) baseUrl += '/';
+
             const attendanceUrl = `${baseUrl}qr.html?s=${currentSpace.id}&n=${currentNonce}`;
             const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(attendanceUrl)}`;
 
-            qrImage.src = qrApiUrl;
-            qrStatus.innerText = "Code is live. Scan now.";
-            resetTimer(30);
+            // Use a temporary image to verify load before updating UI
+            const img = new Image();
+            img.onload = () => {
+                qrImage.src = qrApiUrl;
+                qrImage.style.opacity = "1";
+                qrStatus.innerText = "Code is live. Scan now.";
+                resetTimer(30);
+            };
+            img.onerror = () => {
+                // Try fallback API if primary fails
+                const fallbackUrl = `https://chart.googleapis.com/chart?cht=qr&chs=250x250&chl=${encodeURIComponent(attendanceUrl)}`;
+                qrImage.src = fallbackUrl;
+                qrImage.style.opacity = "1";
+                qrStatus.innerText = "Using fallback generator...";
+                resetTimer(30);
+            };
+            img.src = qrApiUrl;
+
         } catch (e) {
             console.error("QR Sync Fail:", e);
-            qrStatus.innerText = "Sync Error. Retrying...";
+            qrStatus.innerText = "Sync Error. Retrying in 5s...";
+            setTimeout(refreshQR, 5000); // Retry sooner than 30s on hard failure
         }
     };
 
@@ -298,6 +328,99 @@ if (btnCloseQr) {
         qrModal.classList.add('hidden');
         stopQRRotation();
     });
+}
+
+// History Modal Controls
+if (btnHistory) {
+    btnHistory.addEventListener('click', openHistoryModal);
+}
+
+if (btnCloseHistory) {
+    btnCloseHistory.addEventListener('click', () => {
+        historyModal.classList.add('hidden');
+    });
+}
+
+async function openHistoryModal() {
+    if (!currentSpace) return;
+    historyModal.classList.remove('hidden');
+    historyDateSelector.innerHTML = '<div style="color:var(--accent)">Loading dates...</div>';
+    historyTableBody.innerHTML = '';
+    historyStatus.innerText = 'Select a date to view attendance';
+
+    try {
+        const spaceSnap = await getDoc(doc(db, COLL_SPACES, currentSpace.id));
+        const historyDates = spaceSnap.data().historyDates || {};
+        const dates = Object.keys(historyDates).sort((a, b) => b.localeCompare(a)); // Sort desc
+
+        if (dates.length === 0) {
+            historyDateSelector.innerHTML = '<div style="color:var(--text-muted)">No history available yet.</div>';
+            return;
+        }
+
+        historyDateSelector.innerHTML = '';
+        dates.forEach(date => {
+            const btn = document.createElement('button');
+            btn.className = 'btn-date';
+            btn.innerText = date;
+            btn.onclick = () => loadHistoryForDate(date, btn);
+            historyDateSelector.appendChild(btn);
+        });
+
+        // Load most recent date by default
+        if (dates.length > 0) {
+            loadHistoryForDate(dates[0], historyDateSelector.firstChild);
+        }
+    } catch (err) {
+        console.error("History Load Fail:", err);
+        historyDateSelector.innerHTML = '<div style="color:var(--danger)">Failed to load dates.</div>';
+    }
+}
+
+async function loadHistoryForDate(date, btnElement) {
+    // UI Update
+    document.querySelectorAll('.btn-date').forEach(b => b.classList.remove('active'));
+    if (btnElement) btnElement.classList.add('active');
+
+    historyTableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">Loading data...</td></tr>';
+    historyStatus.innerText = `Loading attendance for ${date}...`;
+
+    try {
+        const q = query(collection(db, COLL_ATTENDANCE),
+            where("spaceId", "==", currentSpace.id),
+            where("date", "==", date));
+        const snap = await getDocs(q);
+        const records = [];
+        snap.forEach(doc => records.push(doc.data()));
+
+        // Sort Alphabetically
+        records.sort((a, b) => a.name.localeCompare(b.name));
+
+        if (records.length === 0) {
+            historyTableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#888;">No records found for this date.</td></tr>';
+            historyStatus.innerText = `No records for ${date}`;
+            return;
+        }
+
+        historyTableBody.innerHTML = '';
+        records.forEach(r => {
+            const time = r.timestamp ? (r.timestamp.toDate ? r.timestamp.toDate() : new Date(r.timestamp)).toLocaleTimeString() : 'N/A';
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${r.name}</strong></td>
+                <td>${r.regNo || '-'}</td>
+                <td>${r.course || '-'}</td>
+                <td>${time}</td>
+            `;
+            historyTableBody.appendChild(tr);
+        });
+
+        historyStatus.innerText = `Showing ${records.length} records for ${date}`;
+
+    } catch (err) {
+        console.error("History Data Load Fail:", err);
+        historyTableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--danger);">Error loading data.</td></tr>';
+    }
 }
 
 // ==========================================
@@ -921,6 +1044,26 @@ async function markAttendance(name) {
         await updateDoc(userDocRef, {
             lastAttendance: todayDate,
             attendanceCount: increment(1)
+        });
+
+        // Save to History Collection
+        const dateId = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const userSnap = await getDoc(userDocRef);
+        const userData = userSnap.data();
+
+        await addDoc(collection(db, COLL_ATTENDANCE), {
+            spaceId: currentSpace.id,
+            userId: docId,
+            name: name,
+            regNo: userData.regNo || '',
+            course: userData.course || '',
+            date: dateId,
+            timestamp: new Date()
+        });
+
+        // Track unique dates for this space
+        await updateDoc(doc(db, COLL_SPACES, currentSpace.id), {
+            [`historyDates.${dateId}`]: true
         });
 
         // Visual Success Feedback
