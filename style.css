@@ -370,9 +370,10 @@ input:focus {
     width: 100%;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-end;
     justify-content: center;
-    padding: 20px;
+    padding: 24px 80px;
+    /* Added more horizontal padding for right alignment */
     min-height: 100vh;
 }
 
