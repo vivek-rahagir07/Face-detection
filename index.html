@@ -66,6 +66,8 @@
     <div id="view-operation" class="operation-container hidden">
         <div class="operation-header">
             <button id="btn-exit-workspace" class="btn-secondary btn-sm">🚪 Exit Workspace</button>
+            <button id="btn-qr-presence" class="btn-primary btn-sm" style="background: var(--accent); color: #000;">📱
+                QR Presence</button>
             <h2 id="current-space-title">Workspace Name</h2>
             <div id="system-status" class="status-badge status-loading">Initializing System...</div>
         </div>
@@ -184,6 +186,20 @@
 
     <!-- Bottom Aesthetic Strip -->
     <div class="bottom-strip"></div>
+
+    <!-- Bottom Overlay Elements -->
+    <div id="qr-modal" class="qr-modal-container hidden">
+        <div class="qr-modal-content">
+            <button id="btn-close-qr" class="btn-close">&times;</button>
+            <h3>QR Presence</h3>
+            <p>Scan to mark attendance. Refreshes in <span id="qr-timer">30</span>s</p>
+            <div class="qr-wrapper">
+                <img id="qr-image" src="" alt="QR Code">
+                <div class="qr-scanner-line"></div>
+            </div>
+            <div id="qr-status" class="qr-status">Generating code...</div>
+        </div>
+    </div>
 
     <!-- Main Application Logic (External) -->
     <script type="module" src="main.js"></script>

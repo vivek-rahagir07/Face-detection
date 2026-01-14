@@ -57,6 +57,16 @@ let isModelsLoaded = false;
 let nameToDocId = {};
 const attendanceCooldowns = {};
 let allUsersData = [];
+let qrInterval = null;
+let qrTimerInterval = null;
+let currentNonce = null;
+
+const qrModal = document.getElementById('qr-modal');
+const btnQrPresence = document.getElementById('btn-qr-presence');
+const btnCloseQr = document.getElementById('btn-close-qr');
+const qrImage = document.getElementById('qr-image');
+const qrTimerDisplay = document.getElementById('qr-timer');
+const qrStatus = document.getElementById('qr-status');
 
 // Advanced Detection State
 const VALIDATION_THRESHOLD = 5;
@@ -219,12 +229,76 @@ function enterSpace(id, data) {
     init3DFace('face-3d-container'); // Init operation view 3D
 }
 
+// QR Logic
+async function startQRRotation() {
+    if (!currentSpace) return;
+    stopQRRotation();
+
+    const refreshQR = async () => {
+        currentNonce = Math.random().toString(36).substring(2, 12);
+        const spaceRef = doc(db, COLL_SPACES, currentSpace.id);
+
+        try {
+            await updateDoc(spaceRef, { qrNonce: currentNonce });
+            // Generate QR link (assuming hosted or local IP)
+            const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '');
+            const attendanceUrl = `${baseUrl}qr.html?s=${currentSpace.id}&n=${currentNonce}`;
+            const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(attendanceUrl)}`;
+
+            qrImage.src = qrApiUrl;
+            qrStatus.innerText = "Code is live. Scan now.";
+            resetTimer(30);
+        } catch (e) {
+            console.error("QR Sync Fail:", e);
+            qrStatus.innerText = "Sync Error. Retrying...";
+        }
+    };
+
+    await refreshQR();
+    qrInterval = setInterval(refreshQR, 30000);
+}
+
+function stopQRRotation() {
+    if (qrInterval) clearInterval(qrInterval);
+    if (qrTimerInterval) clearInterval(qrTimerInterval);
+    qrInterval = null;
+    qrTimerInterval = null;
+}
+
+function resetTimer(seconds) {
+    if (qrTimerInterval) clearInterval(qrTimerInterval);
+    let timeLeft = seconds;
+    qrTimerDisplay.innerText = timeLeft;
+
+    qrTimerInterval = setInterval(() => {
+        timeLeft--;
+        qrTimerDisplay.innerText = timeLeft;
+        if (timeLeft <= 0) clearInterval(qrTimerInterval);
+    }, 1000);
+}
+
 btnPortalJoin.addEventListener('click', handleJoin);
 btnPortalCreate.addEventListener('click', handleCreate);
 btnExitWorkspace.addEventListener('click', () => {
+    stopQRRotation();
     currentSpace = null;
     showView('view-portal');
 });
+
+// QR Modal Controls
+if (btnQrPresence) {
+    btnQrPresence.addEventListener('click', () => {
+        qrModal.classList.remove('hidden');
+        startQRRotation();
+    });
+}
+
+if (btnCloseQr) {
+    btnCloseQr.addEventListener('click', () => {
+        qrModal.classList.add('hidden');
+        stopQRRotation();
+    });
+}
 
 // ==========================================
 // 4. FACE API & CAMERA

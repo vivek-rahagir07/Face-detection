@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Presence - VisionAttend</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary: #fff;
+            --accent: #00f2ff;
+            --magenta: #ff00f2;
+            --bg: #000;
+            --text: #fff;
+            --text-muted: #888;
+            --success: #00f2ff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 400px;
+            background: rgba(15, 15, 15, 0.9);
+            padding: 40px 30px;
+            border-radius: 40px;
+            border: 1px solid rgba(0, 242, 255, 0.1);
+            box-shadow: 0 0 100px rgba(0, 242, 255, 0.1);
+            text-align: center;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        h1 {
+            font-weight: 800;
+            font-size: 2rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #fff, var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        p {
+            color: var(--text-muted);
+            margin-bottom: 30px;
+            font-size: 0.95rem;
+        }
+
+        .input-group {
+            margin-bottom: 25px;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+            margin-left: 5px;
+        }
+
+        input {
+            width: 100%;
+            background: #111;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 16px 20px;
+            border-radius: 16px;
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.1);
+        }
+
+        button {
+            width: 100%;
+            background: var(--accent);
+            color: #000;
+            border: none;
+            padding: 18px;
+            border-radius: 16px;
+            font-weight: 800;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        button:disabled {
+            background: #222;
+            color: #444;
+            cursor: not-allowed;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        #status {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            min-height: 20px;
+        }
+
+        .success {
+            color: var(--success);
+        }
+
+        .error {
+            color: #ef4444;
+        }
+
+        .loading-dots:after {
+            content: '.';
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+
+        @keyframes dots {
+
+            0%,
+            20% {
+                content: '.';
+            }
+
+            40% {
+                content: '..';
+            }
+
+            60% {
+                content: '...';
+            }
+
+            80%,
+            100% {
+                content: '';
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container" id="app">
+        <h1>VisionAttend</h1>
+        <p>Dynamic QR Presence System</p>
+
+        <div id="form-view">
+            <div class="input-group">
+                <label for="name">Your Name</label>
+                <input type="text" id="name" placeholder="Enter your full name" autocomplete="off">
+            </div>
+            <button id="btn-submit">Mark Presence</button>
+            <div id="status"></div>
+        </div>
+
+        <div id="success-view" style="display: none;">
+            <div style="font-size: 4rem; color: var(--success); margin-bottom: 20px;">✔</div>
+            <h2 style="color: var(--success); margin-bottom: 10px;">Presence Marked!</h2>
+            <p>Your attendance has been recorded successfully. You can close this window now.</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, updateDoc, doc, getDoc, getDocs, query, where, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Config (Must match main.js)
+        const firebaseConfig = {
+            apiKey: "AIzaSyAf9xAmQtFZcvE8tvxpI-tU5teS89Dc6II",
+            authDomain: "live-face-attendence-detection.firebaseapp.com",
+            projectId: "live-face-attendence-detection",
+            storageBucket: "live-face-attendence-detection.firebasestorage.app",
+            messagingSenderId: "67072118378",
+            appId: "1:67072118378:web:a988976e9233434b3fc413"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const params = new URLSearchParams(window.location.search);
+        const spaceId = params.get('s');
+        const nonce = params.get('n');
+
+        const btnSubmit = document.getElementById('btn-submit');
+        const inputName = document.getElementById('name');
+        const statusDiv = document.getElementById('status');
+        const formView = document.getElementById('form-view');
+        const successView = document.getElementById('success-view');
+
+        async function markPresence() {
+            const name = inputName.value.trim();
+            if (!name) return showStatus("Please enter your name.", "error");
+            if (!spaceId || !nonce) return showStatus("Invalid QR code.", "error");
+
+            btnSubmit.disabled = true;
+            showStatus("Verifying code<span class=\"loading-dots\"></span>", "");
+
+            try {
+                // 1. Verify Space and Nonce
+                const spaceRef = doc(db, 'spaces', spaceId);
+                const spaceSnap = await getDoc(spaceRef);
+
+                if (!spaceSnap.exists()) throw new Error("Workspace not found.");
+                if (spaceSnap.data().qrNonce !== nonce) throw new Error("QR code expired. Please scan again.");
+
+                // 2. Find or Create User Record
+                const q = query(collection(db, 'users'), where("spaceId", "==", spaceId), where("name", "==", name));
+                const userSnap = await getDocs(q);
+                const todayStr = new Date().toDateString();
+
+                if (!userSnap.empty) {
+                    const userDoc = userSnap.docs[0];
+                    const userData = userDoc.data();
+
+                    if (userData.lastAttendance === todayStr) {
+                        return showStatus("You've already marked presence today.", "success");
+                    }
+
+                    await updateDoc(doc(db, 'users', userDoc.id), {
+                        lastAttendance: todayStr,
+                        attendanceCount: increment(1)
+                    });
+                } else {
+                    // Create minimal entry for QR attendance
+                    await addDoc(collection(db, 'users'), {
+                        name: name,
+                        spaceId: spaceId,
+                        lastAttendance: todayStr,
+                        attendanceCount: 1,
+                        createdAt: new Date().toISOString(),
+                        type: 'qr-lite'
+                    });
+                }
+
+                formView.style.display = 'none';
+                successView.style.display = 'block';
+
+            } catch (err) {
+                showStatus(err.message, "error");
+                btnSubmit.disabled = false;
+            }
+        }
+
+        function showStatus(msg, type) {
+            statusDiv.innerHTML = msg;
+            statusDiv.className = type;
+        }
+
+        btnSubmit.addEventListener('click', markPresence);
+        inputName.addEventListener('keypress', (e) => { if (e.key === 'Enter') markPresence(); });
+    </script>
+</body>
+
+</html>
