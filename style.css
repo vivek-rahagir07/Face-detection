@@ -434,7 +434,7 @@ input:focus {
     transform: scale(1.1);
     transform-origin: center center;
     pointer-events: none;
-    filter: brightness(1.2) contrast(1.1) drop-shadow(0 0 40px rgba(0, 242, 255, 0.4));
+    filter: brightness(1.1) contrast(1.1);
 }
 
 .spline-watermark-cover {
@@ -459,9 +459,7 @@ input:focus {
     text-align: center;
     backdrop-filter: blur(40px);
     border: 1px solid rgba(0, 242, 255, 0.2);
-    box-shadow:
-        0 30px 60px rgba(0, 0, 0, 0.9),
-        inset 0 0 80px rgba(0, 242, 255, 0.05);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.9);
     animation: fadeInPortal 1s ease-out forwards;
 }
 
@@ -477,7 +475,7 @@ input:focus {
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     opacity: 1;
-    box-shadow: 0 0 30px rgba(0, 242, 255, 0.6);
+    box-shadow: none;
     pointer-events: none;
 }
 
