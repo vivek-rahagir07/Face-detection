@@ -463,10 +463,12 @@ input:focus {
     margin-right: 8%;
     text-align: center;
     backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
     border: 1px solid rgba(0, 242, 255, 0.1);
     box-shadow:
         0 30px 60px rgba(0, 0, 0, 0.9),
-        0 0 40px rgba(0, 242, 255, 0.1);
+        0 0 40px rgba(0, 242, 255, 0.2);
+    will-change: filter, transform;
     animation:
         fadeInPortal 1s ease-out forwards,
         multi-glow 8s linear infinite;
@@ -483,6 +485,7 @@ input:focus {
     z-index: 15;
     pointer-events: none;
     transform: rotate(-10deg);
+    will-change: transform, filter;
     animation: logo-float 4s ease-in-out infinite;
 }
 
@@ -492,18 +495,19 @@ input:focus {
     inset: -3px;
     border-radius: 43px;
     padding: 3px;
-    background: conic-gradient(from var(--border-angle),
+    background: conic-gradient(from var(--border-angle, 0deg),
             #00f2ff,
             #ff00f2,
             #7000ff,
             #00f2ff);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
+    -webkit-mask-composite: source-out;
     mask-composite: exclude;
     opacity: 1;
     pointer-events: none;
-    animation: rotate-border 4s linear infinite;
+    will-change: filter, transform;
+    animation: rotate-border 4s linear infinite, hue-flow 8s linear infinite;
 }
 
 @property --border-angle {
@@ -522,18 +526,21 @@ input:focus {
 
     0%,
     100% {
-        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(0, 242, 255, 0.2);
-        border-color: rgba(0, 242, 255, 0.2);
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.9), 0 0 50px rgba(0, 242, 255, 0.3);
+        border-color: rgba(0, 242, 255, 0.3);
+        filter: hue-rotate(0deg) saturate(1.2);
     }
 
     33% {
-        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(255, 0, 242, 0.2);
-        border-color: rgba(255, 0, 242, 0.2);
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.9), 0 0 70px rgba(255, 0, 242, 0.3);
+        border-color: rgba(255, 0, 242, 0.3);
+        filter: hue-rotate(20deg) saturate(1.5);
     }
 
     66% {
-        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(112, 0, 255, 0.2);
-        border-color: rgba(112, 0, 255, 0.2);
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.9), 0 0 70px rgba(112, 0, 255, 0.3);
+        border-color: rgba(112, 0, 255, 0.3);
+        filter: hue-rotate(-20deg) saturate(1.5);
     }
 }
 
