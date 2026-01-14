@@ -191,6 +191,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, updateDoc, doc, getDoc, getDocs, query, where, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Firebase Config (Must match main.js)
@@ -205,6 +206,21 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // Ensure anonymous auth for connectivity
+        let currentUser = null;
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                console.log("Authenticated as:", user.uid);
+            } else {
+                signInAnonymously(auth).catch(e => {
+                    console.error("Auth Fail:", e);
+                    showStatus("Connection Error: Authentication Failed", "error");
+                });
+            }
+        });
 
         const params = new URLSearchParams(window.location.search);
         const spaceId = params.get('s');
