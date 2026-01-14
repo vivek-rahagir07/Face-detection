@@ -112,12 +112,29 @@ function updateLiveDateTime() {
 setInterval(updateLiveDateTime, 60000);
 updateLiveDateTime();
 
-function speak(text) {
+function speak(text, gender = 'male') {
     if (!currentSpace || !currentSpace.config || !currentSpace.config.voiceEnabled) return;
     if (window.speechSynthesis.speaking) return;
+
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1.1;
+    const voices = window.speechSynthesis.getVoices();
+
+    // Attempt to find cool/premium voices
+    let selectedVoice = null;
+    if (gender === 'female') {
+        // Look for premium female voices
+        selectedVoice = voices.find(v => v.name.includes('Samantha') || v.name.includes('Google US English') || v.name.includes('Victoria'));
+        utterance.pitch = 1.1; // Slightly higher for punchiness
+        utterance.rate = 1.0;
+    } else {
+        // Look for premium male voices
+        selectedVoice = voices.find(v => v.name.includes('Alex') || v.name.includes('Google UK English Male') || v.name.includes('Daniel'));
+        utterance.pitch = 0.9; // Deeper for male "cool" effect
+        utterance.rate = 1.0;
+    }
+
+    if (selectedVoice) utterance.voice = selectedVoice;
+
     window.speechSynthesis.speak(utterance);
 }
 
@@ -748,6 +765,40 @@ function updateRegistrationForm() {
         input.placeholder = 'Phone Number';
         dynamicFieldsContainer.appendChild(input);
     }
+
+    // Always include Gender for Voice Customization
+    const genderContainer = document.createElement('div');
+    genderContainer.style.display = 'flex';
+    genderContainer.style.gap = '8px';
+    genderContainer.style.marginTop = '10px';
+
+    const genderLabel = document.createElement('span');
+    genderLabel.innerText = 'Gender: ';
+    genderLabel.style.color = 'var(--text-muted)';
+    genderLabel.style.fontSize = '0.8rem';
+    genderContainer.appendChild(genderLabel);
+
+    const genderSelect = document.createElement('select');
+    genderSelect.id = 'reg-gender';
+    genderSelect.style.flex = '1';
+    genderSelect.style.background = 'rgba(255,255,255,0.05)';
+    genderSelect.style.border = '1px solid var(--border)';
+    genderSelect.style.color = 'white';
+    genderSelect.style.borderRadius = '8px';
+    genderSelect.style.padding = '5px';
+
+    const optM = document.createElement('option');
+    optM.value = 'male';
+    optM.innerText = 'Male';
+    genderSelect.appendChild(optM);
+
+    const optF = document.createElement('option');
+    optF.value = 'female';
+    optF.innerText = 'Female';
+    genderSelect.appendChild(optF);
+
+    genderContainer.appendChild(genderSelect);
+    dynamicFieldsContainer.appendChild(genderContainer);
 }
 
 async function saveSpaceConfig() {
@@ -1144,7 +1195,7 @@ async function handlePhotoUpload(e) {
 
 function collectRegistrationMetadata() {
     const metadata = {};
-    const fields = ['regNo', 'course', 'email', 'bloodGroup', 'weight', 'phone'];
+    const fields = ['regNo', 'course', 'email', 'bloodGroup', 'weight', 'phone', 'gender'];
     fields.forEach(f => {
         const el = document.getElementById(`reg-${f}`);
         if (el) metadata[f] = el.value.trim();
@@ -1181,7 +1232,7 @@ async function finalizeRegistration(name, metadata, descriptorArray) {
 }
 
 function resetRegistrationForm() {
-    const inputs = regForm.querySelectorAll('input');
+    const inputs = regForm.querySelectorAll('input, select');
     inputs.forEach(i => i.value = "");
 }
 
@@ -1201,7 +1252,9 @@ async function markAttendance(name) {
     const nowSpoken = Date.now();
     const lastTimeSpoken = lastSpoken[name] || 0;
     if (nowSpoken - lastTimeSpoken > 10000) { // 10s cooldown per person for voice
-        speak(`Welcome ${name}`);
+        const userData = allUsersData.find(u => u.name === name);
+        const gender = (userData && userData.gender) ? userData.gender : 'male';
+        speak(`Welcome ${name}`, gender);
         lastSpoken[name] = nowSpoken;
     }
 
