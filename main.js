@@ -1090,17 +1090,7 @@ function init3DFace(containerId) {
 
     const statusEl = document.getElementById('guide-status-text');
     if (statusEl && containerId === 'portal-guide-container') {
-        const logs = ["INITIALIZING SYNAPTIC LINK", "MAPPING FACIAL TOPOLOGY", "ENCRYPTING BIOMETRICS", "SYSTEM STABILIZED"];
-        let logIdx = 0;
-        setInterval(() => {
-            logIdx = (logIdx + 1) % logs.length;
-            statusEl.style.transition = 'opacity 0.4s';
-            statusEl.style.opacity = '0';
-            setTimeout(() => {
-                statusEl.innerText = logs[logIdx];
-                statusEl.style.opacity = '1';
-            }, 500);
-        }, 4000);
+        // Portal guide status log logic removed
     }
 
     window.addEventListener('resize', () => {
@@ -1111,5 +1101,5 @@ function init3DFace(containerId) {
     });
 }
 
-// Initial portal guide
-init3DFace('portal-guide-container');
+// Initial portal guide removed
+// init3DFace('portal-guide-container');
