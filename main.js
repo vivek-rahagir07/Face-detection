@@ -38,6 +38,7 @@ const dateDisplay = document.getElementById('display-date');
 const loadingOverlay = document.getElementById('loading-overlay');
 const loadingText = document.getElementById('loading-text');
 const btnCapture = document.getElementById('btn-capture');
+const btnCopyQrLink = document.getElementById('btn-copy-qr-link');
 const btnUploadTrigger = document.getElementById('btn-upload-trigger');
 const inputUploadPhoto = document.getElementById('input-upload-photo');
 const regFeedback = document.getElementById('reg-feedback');
@@ -249,35 +250,47 @@ async function startQRRotation() {
             qrStatus.innerText = "Syncing with cloud...";
             qrImage.style.opacity = "0.5";
 
-            // Update Firebase first to ensure consistency
+            // Update Firebase
             await updateDoc(spaceRef, { qrNonce: currentNonce });
 
-            // Robust base URL construction
             let baseUrl = window.location.href.split('?')[0].split('#')[0].replace('index.html', '');
             if (!baseUrl.endsWith('/')) baseUrl += '/';
 
             const attendanceUrl = `${baseUrl}qr.html?s=${currentSpace.id}&n=${currentNonce}`;
 
-            // Generate QR Locally (eliminates external API failure)
-            QRCode.toDataURL(attendanceUrl, {
-                width: 250,
-                margin: 2,
-                color: {
-                    dark: '#000000',
-                    light: '#ffffff'
-                }
-            }, (err, url) => {
-                if (err) throw err;
+            // Helper to generate locally or fallback to API
+            const generateQR = () => {
+                const qrEngine = window.QRCode || (typeof QRCode !== 'undefined' ? QRCode : null);
 
-                qrImage.src = url;
-                qrImage.style.opacity = "1";
-                qrStatus.innerText = "Code is live. Scan now.";
-                resetTimer(30);
-            });
+                if (qrEngine && qrEngine.toDataURL) {
+                    qrEngine.toDataURL(attendanceUrl, {
+                        width: 250, margin: 2,
+                        color: { dark: '#000000', light: '#ffffff' }
+                    }, (err, url) => {
+                        if (err) throw err;
+                        qrImage.src = url;
+                        qrImage.style.opacity = "1";
+                        qrStatus.innerText = "Code is live. Scan now.";
+                        resetTimer(30);
+                    });
+                } else {
+                    // Fallback to external API if local library missing
+                    console.warn("QRCode library not found, using API fallback");
+                    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(attendanceUrl)}`;
+                    qrImage.src = qrApiUrl;
+                    qrImage.onload = () => {
+                        qrImage.style.opacity = "1";
+                        qrStatus.innerText = "Live (API Fallback)";
+                        resetTimer(30);
+                    };
+                }
+            };
+
+            generateQR();
 
         } catch (e) {
-            console.error("QR Sync Fail:", e);
-            qrStatus.innerText = "Sync Error. Retrying in 5s...";
+            console.error("QR Error:", e);
+            qrStatus.innerHTML = `<span style="color:var(--danger)">Sync Fail: ${e.message.split('(')[0]}</span><br><small>Retrying in 5s...</small>`;
             setTimeout(refreshQR, 5000);
         }
     };
@@ -325,6 +338,20 @@ if (btnCloseQr) {
     btnCloseQr.addEventListener('click', () => {
         qrModal.classList.add('hidden');
         stopQRRotation();
+    });
+}
+
+if (btnCopyQrLink) {
+    btnCopyQrLink.addEventListener('click', () => {
+        if (!currentSpace || !currentNonce) return alert("System not ready");
+        let baseUrl = window.location.href.split('?')[0].split('#')[0].replace('index.html', '');
+        if (!baseUrl.endsWith('/')) baseUrl += '/';
+        const url = `${baseUrl}qr.html?s=${currentSpace.id}&n=${currentNonce}`;
+        navigator.clipboard.writeText(url).then(() => {
+            const originalText = btnCopyQrLink.innerText;
+            btnCopyQrLink.innerText = "✅ Link Copied!";
+            setTimeout(() => btnCopyQrLink.innerText = originalText, 2000);
+        });
     });
 }
 
