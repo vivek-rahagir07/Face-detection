@@ -51,8 +51,24 @@ h1 {
     font-weight: 800;
     margin-bottom: 24px;
     color: var(--primary);
-    /* Simpler, lighter than gradient */
     letter-spacing: -0.03em;
+    animation: text-vibrance 8s linear infinite;
+}
+
+@keyframes text-vibrance {
+
+    0%,
+    100% {
+        text-shadow: 0 0 20px rgba(0, 242, 255, 0.4);
+    }
+
+    33% {
+        text-shadow: 0 0 20px rgba(255, 0, 242, 0.4);
+    }
+
+    66% {
+        text-shadow: 0 0 20px rgba(112, 0, 255, 0.4);
+    }
 }
 
 .main-container {
@@ -277,6 +293,8 @@ h1 {
 
 .btn-primary:hover {
     filter: brightness(1.1);
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.4);
+    transform: translateY(-2px);
 }
 
 .btn-primary:active {
@@ -435,7 +453,7 @@ input:focus {
 }
 
 .portal-card {
-    background: rgba(0, 0, 0, 0.9);
+    background: rgba(0, 0, 0, 0.95);
     padding: 48px 40px;
     border-radius: 40px;
     width: 100%;
@@ -445,22 +463,27 @@ input:focus {
     margin-right: 8%;
     text-align: center;
     backdrop-filter: blur(40px);
-    border: 1px solid rgba(0, 242, 255, 0.2);
-    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.9);
-    animation: fadeInPortal 1s ease-out forwards;
+    border: 1px solid rgba(0, 242, 255, 0.1);
+    box-shadow:
+        0 30px 60px rgba(0, 0, 0, 0.9),
+        0 0 40px rgba(0, 242, 255, 0.1);
+    animation:
+        fadeInPortal 1s ease-out forwards,
+        multi-glow 8s linear infinite;
 }
 
 .card-logo {
     position: absolute;
-    top: -30px;
-    left: -30px;
-    height: 70px;
+    top: -35px;
+    left: -35px;
+    height: 80px;
     width: auto;
-    filter: drop-shadow(0 0 12px rgba(0, 242, 255, 0.3));
+    filter: drop-shadow(0 0 15px rgba(0, 242, 255, 0.4));
     opacity: 1;
     z-index: 15;
     pointer-events: none;
     transform: rotate(-10deg);
+    animation: logo-float 4s ease-in-out infinite;
 }
 
 .portal-card::after {
@@ -469,14 +492,63 @@ input:focus {
     inset: -3px;
     border-radius: 43px;
     padding: 3px;
-    background: #00f2ff;
+    background: conic-gradient(from var(--border-angle),
+            #00f2ff,
+            #ff00f2,
+            #7000ff,
+            #00f2ff);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     opacity: 1;
-    box-shadow: none;
     pointer-events: none;
+    animation: rotate-border 4s linear infinite;
+}
+
+@property --border-angle {
+    syntax: "<angle>";
+    initial-value: 0deg;
+    inherits: false;
+}
+
+@keyframes rotate-border {
+    to {
+        --border-angle: 360deg;
+    }
+}
+
+@keyframes multi-glow {
+
+    0%,
+    100% {
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(0, 242, 255, 0.2);
+        border-color: rgba(0, 242, 255, 0.2);
+    }
+
+    33% {
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(255, 0, 242, 0.2);
+        border-color: rgba(255, 0, 242, 0.2);
+    }
+
+    66% {
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(112, 0, 255, 0.2);
+        border-color: rgba(112, 0, 255, 0.2);
+    }
+}
+
+@keyframes logo-float {
+
+    0%,
+    100% {
+        transform: rotate(-10deg) translateY(0);
+        filter: drop-shadow(0 0 15px rgba(0, 242, 255, 0.4));
+    }
+
+    50% {
+        transform: rotate(-8deg) translateY(-10px);
+        filter: drop-shadow(0 0 25px rgba(255, 0, 242, 0.6));
+    }
 }
 
 @keyframes glow-rotate {
@@ -545,13 +617,31 @@ input:focus {
     cursor: pointer;
     font-weight: 700;
     color: var(--text-muted);
-    transition: var(--transition);
+    transition: all 0.3s ease;
+    font-size: 0.85rem;
 }
 
 .portal-tab.active {
     background: #fff;
-    box-shadow: var(--shadow-sm);
     color: #000;
+    box-shadow: 0 0 20px rgba(0, 242, 255, 0.4);
+    animation: tab-glow 4s linear infinite;
+}
+
+@keyframes tab-glow {
+
+    0%,
+    100% {
+        box-shadow: 0 0 20px rgba(0, 242, 255, 0.4);
+    }
+
+    33% {
+        box-shadow: 0 0 20px rgba(255, 0, 242, 0.4);
+    }
+
+    66% {
+        box-shadow: 0 0 20px rgba(112, 0, 255, 0.4);
+    }
 }
 
 .portal-form {
