@@ -153,6 +153,10 @@ let hudScanCycle = 0; // 0 to 1
 let hudScanDir = 1;
 const lastSpoken = {};
 
+// Device Detection for Performance
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+const DETECTION_INTERVAL = isMobile ? 250 : 100;
+
 let hourlyChart = null;
 
 // Advanced Detection State
@@ -1112,6 +1116,8 @@ async function renderPeopleManagement() {
     const historyDates = spaceSnap.data().historyDates || {};
     const totalDays = Object.keys(historyDates).length || 1;
 
+    const fragment = document.createDocumentFragment();
+
     filteredUsers.forEach(user => {
         const attendanceCount = user.attendanceCount || 0;
         const percentage = Math.round((attendanceCount / totalDays) * 100);
@@ -1133,9 +1139,10 @@ async function renderPeopleManagement() {
             const uid = e.target.closest('.edit-btn').dataset.id;
             openEditModal(uid, user);
         };
-
-        peopleListContainer.appendChild(card);
+        fragment.appendChild(card);
     });
+
+    peopleListContainer.appendChild(fragment);
 }
 
 function openEditModal(uid, userData) {
@@ -1226,8 +1233,13 @@ function drawCustomFaceBox(ctx, box, label, isMatch, confidence) {
 
     ctx.shadowBlur = 0;
 
-    // 2. Animated Scanning Line (HUD)
+    // 2. Animated Scanning Line (Digital Spike)
     const scanLineY = y + (height * hudScanCycle);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath(); ctx.moveTo(x, scanLineY); ctx.lineTo(x + width, scanLineY); ctx.stroke();
+    ctx.setLineDash([]);
 
     const gradient = ctx.createLinearGradient(x, scanLineY, x, scanLineY + 2);
     gradient.addColorStop(0, 'transparent');
@@ -1235,7 +1247,7 @@ function drawCustomFaceBox(ctx, box, label, isMatch, confidence) {
     gradient.addColorStop(1, 'transparent');
 
     ctx.fillStyle = gradient;
-    ctx.fillRect(x + 5, scanLineY, width - 10, 2);
+    ctx.fillRect(x + 2, scanLineY, width - 4, 3);
 
     // 3. Biometric Data Overlays (HUD)
     ctx.font = '700 9px monospace';
@@ -1271,36 +1283,6 @@ function drawCustomFaceBox(ctx, box, label, isMatch, confidence) {
     }
 }
 
-function drawFaceMesh(ctx, landmarks) {
-    const points = landmarks.positions;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = 0.5;
-
-    // Drawing a simplified mesh (connecting key points)
-    // Jaw
-    drawPath(ctx, points.slice(0, 17));
-    // Eye brows
-    drawPath(ctx, points.slice(17, 22));
-    drawPath(ctx, points.slice(22, 27));
-    // Nose bridge
-    drawPath(ctx, points.slice(27, 31));
-    drawPath(ctx, points.slice(31, 36));
-    // Eyes
-    drawPath(ctx, points.slice(36, 42), true);
-    drawPath(ctx, points.slice(42, 48), true);
-    // Lips
-    drawPath(ctx, points.slice(48, 60), true);
-    drawPath(ctx, points.slice(60, 68), true);
-
-    // Draw little dots at landmarks
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    points.forEach(p => {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 1.5, 0, 2 * Math.PI);
-        ctx.fill();
-    });
-}
-
 function drawPath(ctx, points, close = false) {
     if (points.length === 0) return;
     ctx.beginPath();
@@ -1310,6 +1292,35 @@ function drawPath(ctx, points, close = false) {
     }
     if (close) ctx.closePath();
     ctx.stroke();
+}
+
+// Optimized Mesh Drawing
+function drawFaceMesh(ctx, landmarks) {
+    const points = landmarks.positions;
+    ctx.strokeStyle = 'rgba(0, 242, 255, 0.4)';
+    ctx.lineWidth = 0.5;
+
+    // GPU-friendly mesh drawing
+    ctx.beginPath();
+    // Connecting key landmarks for a digital cyber-net look
+    // This is faster than lots of small strokes
+    points.forEach((p, i) => {
+        if (i % 2 === 0) { // Sparse mesh for performance
+            ctx.moveTo(p.x, p.y);
+            const neighbor = points[i + 1] || points[0];
+            ctx.lineTo(neighbor.x, neighbor.y);
+        }
+    });
+    ctx.stroke();
+
+    // Draw nodes
+    ctx.fillStyle = 'rgba(0, 242, 255, 0.8)';
+    for (let i = 0; i < points.length; i += 4) { // Only draw every 4th point as node
+        const p = points[i];
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 1.2, 0, 2 * Math.PI);
+        ctx.fill();
+    }
 }
 
 // Main Loop
@@ -1327,27 +1338,20 @@ video.addEventListener('play', () => {
 
     setInterval(async () => {
         if (!isModelsLoaded || !video.srcObject) return;
-
-        // Skip processing if registering or if tab is hidden
-        if (currentMode === 'registration' || document.hidden) {
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            return;
-        }
+        if (currentMode === 'registration' || document.hidden) return;
 
         // Detect
         const detections = await faceapi.detectAllFaces(video)
             .withFaceLandmarks()
             .withFaceDescriptors();
 
-        // Update HUD animation cycle
-        hudScanCycle += hudScanDir * 0.05; // 5% per frame
-        if (hudScanCycle > 1 || hudScanCycle < 0) hudScanDir *= -1;
-
         const resizedDetections = faceapi.resizeResults(detections, displaySize);
-
         const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // We'll clear and draw in a separate rAF loop for smoothness, 
+        // but we need the results here for the check.
+        window.lastDetections = resizedDetections;
+        window.lastResults = faceMatcher ? resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor)) : [];
 
         // UI Feedback: Scanning indicator
         if (detections.length > 0) {
@@ -1356,52 +1360,60 @@ video.addEventListener('play', () => {
             if (scanIndicator) scanIndicator.style.display = 'none';
         }
 
-        if (!faceMatcher) return;
-
-        const results = resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor));
-
-        results.forEach((result, i) => {
-            const detection = resizedDetections[i];
-            const box = detection.detection.box;
-            let { label, distance } = result;
-
-            const confidence = Math.round((1 - distance) * 100);
-
-            // Strict 20% Threshold logic
-            const isMatch = label !== 'unknown' && confidence >= 20;
-
-            // If below 20%, treat as unknown visually even if faceapi guessed a name
-            const displayLabel = isMatch ? label : (label === 'unknown' ? 'unknown' : label);
-            // Note: drawCustomFaceBox handles formatting based on isMatch
-
-            // Draw Face Mesh Animation
-            if (detection.landmarks) {
-                drawFaceMesh(ctx, detection.landmarks);
-            }
-
-
-            // Draw custom box
-            drawCustomFaceBox(ctx, box, displayLabel, isMatch, confidence);
-
-            // Validation logic
-            if (isMatch) {
-                detectionHistory[label] = (detectionHistory[label] || 0) + 1;
-
-                if (detectionHistory[label] >= VALIDATION_THRESHOLD) {
-                    markAttendance(label);
-                    detectionHistory[label] = 0;
+        if (window.lastResults) {
+            window.lastResults.forEach((result, i) => {
+                const isMatch = result.label !== 'unknown' && Math.round((1 - result.distance) * 100) >= 20;
+                if (isMatch) {
+                    detectionHistory[result.label] = (detectionHistory[result.label] || 0) + 1;
+                    if (detectionHistory[result.label] >= VALIDATION_THRESHOLD) {
+                        markAttendance(result.label);
+                        detectionHistory[result.label] = 0;
+                    }
                 }
-            }
-        });
+            });
 
-        // Cleanup detection history for people not in frame
-        Object.keys(detectionHistory).forEach(name => {
-            const isStillInFrame = results.some(r => r.label === name);
-            if (!isStillInFrame) {
-                detectionHistory[name] = Math.max(0, (detectionHistory[name] || 0) - 1);
-            }
-        });
-    }, 100); // Check every 100ms
+            // Cleanup detection history
+            Object.keys(detectionHistory).forEach(name => {
+                const isStillInFrame = window.lastResults.some(r => r.label === name);
+                if (!isStillInFrame) {
+                    detectionHistory[name] = Math.max(0, (detectionHistory[name] || 0) - 1);
+                }
+            });
+        }
+    }, DETECTION_INTERVAL);
+
+    // --- Smooth HUD Animation Loop (requestAnimationFrame) ---
+    function animateHUD() {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Update HUD animation cycle (scan line)
+        // Adjust speed based on device
+        const scanSpeed = isMobile ? 0.02 : 0.04;
+        hudScanCycle += hudScanDir * scanSpeed;
+        if (hudScanCycle > 1 || hudScanCycle < 0) hudScanDir *= -1;
+
+        if (window.lastDetections && window.lastResults) {
+            window.lastResults.forEach((result, i) => {
+                const detection = window.lastDetections[i];
+                if (!detection) return;
+
+                const box = detection.detection.box;
+                const confidence = Math.round((1 - result.distance) * 100);
+                const isMatch = result.label !== 'unknown' && confidence >= 20;
+                const displayLabel = isMatch ? result.label : 'SEARCHING...';
+
+                // Draw Mesh
+                if (detection.landmarks) drawFaceMesh(ctx, detection.landmarks);
+
+                // Draw HUD Box
+                drawCustomFaceBox(ctx, box, displayLabel, isMatch, confidence);
+            });
+        }
+
+        requestAnimationFrame(animateHUD);
+    }
+    requestAnimationFrame(animateHUD);
 });
 
 
