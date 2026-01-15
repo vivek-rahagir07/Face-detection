@@ -156,7 +156,7 @@
                 <div class="mode-toggle">
                     <button id="btn-mode-attend" class="btn-secondary active">🕒 Attendance</button>
                     <button id="btn-mode-reg" class="btn-secondary">👤 Registration</button>
-                    <button id="btn-mode-analytics" class="btn-secondary">📊 Analytics</button>
+                    <button id="btn-mode-analytics" class="btn-secondary">👥 People Stats</button>
                     <button id="btn-mode-config" class="btn-secondary">⚙️ Settings</button>
                 </div>
 
@@ -243,21 +243,12 @@
                     </div>
                 </div>
 
-                <!-- Analytics -->
+                <!-- People Stats -->
                 <div id="analytics-panel" class="hidden">
-                    <div class="list-header"><span>📊 Attendance Analytics</span></div>
+                    <div class="list-header"><span>👥 People Stats & Management</span></div>
                     <div class="scrollable-list"
-                        style="max-height: 400px; padding: 15px; display: flex; flex-direction: column; gap: 20px;">
-                        <div>
-                            <p
-                                style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px;">
-                                Peak Activity Hours</p>
-                            <canvas id="chart-hourly"></canvas>
-                        </div>
-                        <p
-                            style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px;">
-                            People Management & Stats</p>
-                        <div class="form-group" style="margin-bottom: 15px;">
+                        style="max-height: 400px; padding: 15px; display: flex; flex-direction: column; gap: 15px;">
+                        <div class="form-group" style="margin-bottom: 5px;">
                             <input type="text" id="people-search" placeholder="Search people..."
                                 style="margin: 0; padding: 12px 15px; font-size: 0.9rem;">
                         </div>

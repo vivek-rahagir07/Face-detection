@@ -1662,7 +1662,7 @@ function setMode(mode) {
         analyticsPanel.classList.remove('hidden');
         document.getElementById('btn-mode-analytics').classList.add('active');
         statusBadge.innerText = "Analytics Mode";
-        renderAnalytics();
+        renderPeopleManagement();
     } else {
         attendInfo.classList.remove('hidden');
         document.getElementById('btn-mode-attend').classList.add('active');
@@ -1670,57 +1670,6 @@ function setMode(mode) {
     }
 }
 
-async function renderAnalytics() {
-    if (!currentSpace) return;
-
-    try {
-        const q = query(collection(db, COLL_ATTENDANCE), where("spaceId", "==", currentSpace.id));
-        const snap = await getDocs(q);
-        const records = snap.docs.map(d => d.data());
-
-        // Process Analytics Data
-        const hourlyCounts = Array(24).fill(0);
-
-        records.forEach(r => {
-            if (r.timestamp) {
-                const ts = r.timestamp.toDate ? r.timestamp.toDate() : new Date(r.timestamp);
-                const hour = ts.getHours();
-                hourlyCounts[hour]++;
-            }
-        });
-
-        // Draw Hourly Chart
-        const ctxHourly = document.getElementById('chart-hourly').getContext('2d');
-        if (hourlyChart) hourlyChart.destroy();
-        hourlyChart = new Chart(ctxHourly, {
-            type: 'line',
-            data: {
-                labels: Array.from({ length: 24 }, (_, i) => `${i}:00`),
-                datasets: [{
-                    label: 'Activity',
-                    data: hourlyCounts,
-                    borderColor: '#ff00f2',
-                    backgroundColor: 'rgba(255, 0, 242, 0.1)',
-                    fill: true,
-                    tension: 0.4,
-                    borderWidth: 2,
-                    pointRadius: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                scales: {
-                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888' } },
-                    x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888', maxRotation: 0 } }
-                },
-                plugins: { legend: { display: false } }
-            }
-        });
-    } catch (err) {
-        console.error("Analytics Fail:", err);
-    }
-}
 
 function addLiveLogEntry(name, time) {
     const div = document.createElement('div');
