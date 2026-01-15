@@ -56,6 +56,8 @@ const historyTableBody = document.getElementById('history-table-body');
 const historyStatus = document.getElementById('history-status');
 const historySearchInput = document.getElementById('history-search');
 const btnExportHistory = document.getElementById('btn-export-history');
+const tabPresent = document.getElementById('tab-present');
+const tabAbsent = document.getElementById('tab-absent');
 
 // State
 let currentHistoryRecords = [];
@@ -74,6 +76,9 @@ let allUsersData = [];
 let qrInterval = null;
 let qrTimerInterval = null;
 let currentNonce = null;
+let activeAttendanceTab = 'present';
+let lastPresentHTML = '';
+let lastAbsentHTML = '';
 
 const qrModal = document.getElementById('qr-modal');
 const btnQrPresence = document.getElementById('btn-qr-presence');
@@ -419,6 +424,22 @@ if (btnCopyQrLink) {
             btnCopyQrLink.innerText = "✅ Link Copied!";
             setTimeout(() => btnCopyQrLink.innerText = originalText, 2000);
         });
+    });
+}
+
+// Attendance Tab Switching
+if (tabPresent && tabAbsent) {
+    tabPresent.addEventListener('click', () => {
+        activeAttendanceTab = 'present';
+        tabPresent.classList.add('active');
+        tabAbsent.classList.remove('active');
+        renderAttendanceList();
+    });
+    tabAbsent.addEventListener('click', () => {
+        activeAttendanceTab = 'absent';
+        tabAbsent.classList.add('active');
+        tabPresent.classList.remove('active');
+        renderAttendanceList();
     });
 }
 
@@ -895,7 +916,8 @@ function startDbListener() {
         const tempMap = {};
         const tempAllData = [];
         let presentTodayCount = 0;
-        let todayAttendeesHTML = '';
+        let presentAttendeesHTML = '';
+        let absentAttendeesHTML = '';
         const todayStr = new Date().toDateString();
 
         snapshot.forEach(doc => {
@@ -912,17 +934,21 @@ function startDbListener() {
                 }
             }
 
+            const itemHTML = `
+                <div class="list-item list-item-new">
+                    <div>
+                        <strong>${data.name}</strong>
+                        <span class="badge-course">${data.course || data.regNo || ''}</span>
+                    </div>
+                    ${data.lastAttendance === todayStr ? '<div style="color:var(--success)">✔</div>' : '<div style="color:var(--text-muted); font-size: 0.7rem;">Absent</div>'}
+                </div>
+            `;
+
             if (data.lastAttendance === todayStr) {
                 presentTodayCount++;
-                todayAttendeesHTML += `
-                    <div class="list-item list-item-new">
-                        <div>
-                            <strong>${data.name}</strong>
-                            <span class="badge-course">${data.course || data.regNo || ''}</span>
-                        </div>
-                        <div style="color:var(--success)">✔</div>
-                    </div>
-                `;
+                presentAttendeesHTML += itemHTML;
+            } else {
+                absentAttendeesHTML += itemHTML;
             }
         });
 
@@ -935,8 +961,22 @@ function startDbListener() {
         }
 
         todayCountDisplay.innerText = presentTodayCount;
-        todayListContainer.innerHTML = todayAttendeesHTML || '<div style="padding:10px; text-align:center; color:#888;">No attendance yet today</div>';
+        lastPresentHTML = presentAttendeesHTML;
+        lastAbsentHTML = absentAttendeesHTML;
+
+        // Render based on active tab
+        renderAttendanceList();
     });
+}
+
+function renderAttendanceList() {
+    if (!todayListContainer) return;
+
+    if (activeAttendanceTab === 'present') {
+        todayListContainer.innerHTML = lastPresentHTML || '<div style="padding:10px; text-align:center; color:#888;">No attendance yet today</div>';
+    } else {
+        todayListContainer.innerHTML = lastAbsentHTML || '<div style="padding:10px; text-align:center; color:#888;">All registered users are present!</div>';
+    }
 }
 
 // Drawing Utils
