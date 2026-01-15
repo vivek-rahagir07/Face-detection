@@ -1059,7 +1059,18 @@ function showToast(message, type = 'success') {
     toast.className = `toast ${type}`;
     toast.innerText = message;
     toastContainer.appendChild(toast);
-    setTimeout(() => toast.remove(), 3100);
+
+    // Haptic Feedback for Mobile
+    if (navigator.vibrate) {
+        if (type === 'error') navigator.vibrate([100, 50, 100]);
+        else navigator.vibrate(50);
+    }
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-20px)';
+        setTimeout(() => toast.remove(), 500);
+    }, 2600);
 }
 
 function showConfirm(message, callback) {
@@ -1526,6 +1537,10 @@ async function markAttendance(name) {
 
     // 1 minute cooldown
     if (now - lastMarked < 60000) return;
+
+    // Local feedback
+    if (navigator.vibrate) navigator.vibrate(100);
+    showToast(`Attendance marked: ${name}`);
 
     attendanceCooldowns[name] = now;
     const timeStr = new Date().toLocaleTimeString();

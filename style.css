@@ -1784,3 +1784,80 @@ input:focus {
 #overlay {
     animation: mesh-pulse 4s infinite ease-in-out;
 }
+/* Final Mobile Polish */
+@media (max-width: 600px) {
+    :root {
+        --nav-height: 70px;
+    }
+
+    /* Prevent iOS zoom on input focus */
+    input {
+        font-size: 16px !important;
+    }
+
+    .operation-header {
+        padding: 12px;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+    }
+
+    .operation-header h2 {
+        width: 100%;
+        text-align: center;
+        font-size: 1.1rem;
+        order: -1;
+    }
+
+    .operation-header .btn-sm {
+        padding: 8px 12px;
+        font-size: 0.75rem;
+    }
+
+    .status-badge {
+        font-size: 0.7rem;
+        padding: 8px 12px;
+    }
+
+    /* Full width modals on mobile */
+    .qr-modal-content {
+        width: 95% !important;
+        max-width: none !important;
+        margin: 10px;
+        padding: 24px 16px;
+    }
+
+    /* Typography Polish */
+    h1 { font-size: 2.2rem; }
+    h2 { font-size: 1.6rem; }
+    
+    .mobile-welcome-text h1 {
+        font-size: 2.8rem;
+    }
+}
+
+/* Enhanced Tap Feedback */
+button:active, 
+.list-item:active, 
+.management-person-card:active {
+    transform: scale(0.96);
+    filter: brightness(0.9);
+    transition: transform 0.1s ease;
+}
+
+/* Smooth scrolling for modal content */
+.qr-modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* Touch-friendly Scrollbars */
+::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
