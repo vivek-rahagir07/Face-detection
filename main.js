@@ -5,7 +5,7 @@ import { getFirestore, collection, addDoc, updateDoc, doc, getDoc, onSnapshot, i
 
 // --- Preloader Logic ---
 const preloader = document.getElementById('preloader');
-const minPreloaderTime = 2000; // 2 seconds
+const minPreloaderTime = 3000; // 3 seconds
 const startTime = Date.now();
 
 window.addEventListener('load', () => {
