@@ -1751,7 +1751,8 @@ if (btnGenerateMagic) {
         if (!currentSpace) return alert("Enter a workspace first");
         let baseUrl = window.location.href.split('?')[0].split('#')[0].replace('index.html', '');
         if (!baseUrl.endsWith('/')) baseUrl += '/';
-        const url = `${baseUrl}register.html?s=${currentSpace.id}`;
+        const expiresAt = Date.now() + (5 * 60 * 1000); // 5 min
+        const url = `${baseUrl}register.html?s=${currentSpace.id}&exp=${expiresAt}`;
         magicLinkInput.value = url;
         magicLinkContainer.classList.remove('hidden');
         btnGenerateMagic.innerText = "🔄 Regenerated";

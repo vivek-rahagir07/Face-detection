@@ -290,6 +290,11 @@
         <div class="camera-box">
             <video id="video" autoplay muted playsinline></video>
             <canvas id="overlay"></canvas>
+            <!-- Validity Timer -->
+            <div id="validity-timer"
+                style="position:absolute; top:15px; right:15px; background:rgba(0,0,0,0.7); padding:8px 12px; border-radius:10px; border:1px solid #10b981; font-family:'Outfit', sans-serif; font-weight:700; color:#10b981; font-size:0.8rem; z-index:20;">
+                SECURE LINK: <span id="timer-display">05:00</span>
+            </div>
             <div id="loading-overlay"
                 style="position:absolute; inset:0; background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; flex-direction:column; z-index:10;">
                 <div
@@ -366,21 +371,70 @@
 
         const params = new URLSearchParams(window.location.search);
         const spaceId = params.get('s');
+        const expiryTime = parseInt(params.get('exp'));
 
         let lastDetection = null;
         let isReady = false;
         let workspaceConfig = null;
+        let timerInterval = null;
 
         // Model loading
         const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
 
+        function startTimer() {
+            if (!expiryTime) return;
+
+            const timerDisplay = document.getElementById('timer-display');
+            const validityTimer = document.getElementById('validity-timer');
+
+            const update = () => {
+                const now = Date.now();
+                const diff = expiryTime - now;
+
+                if (diff <= 0) {
+                    clearInterval(timerInterval);
+                    timerDisplay.innerText = "EXPIRED";
+                    validityTimer.style.borderColor = "#ef4444";
+                    validityTimer.style.color = "#ef4444";
+                    btnSubmit.disabled = true;
+                    isReady = false; // Stop frame processing
+                    feedback.innerText = "Link Expired. Please request a new one.";
+                    feedback.style.color = "#ef4444";
+                    if (video.srcObject) {
+                        video.srcObject.getTracks().forEach(track => track.stop());
+                    }
+                    return;
+                }
+
+                const mins = Math.floor(diff / 60000);
+                const secs = Math.floor((diff % 60000) / 1000);
+                timerDisplay.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+                if (diff < 60000) { // Last minute warning
+                    validityTimer.style.borderColor = "#f59e0b";
+                    validityTimer.style.color = "#f59e0b";
+                }
+            };
+
+            update();
+            timerInterval = setInterval(update, 1000);
+        }
+
         async function startPortal() {
             try {
-                if (!spaceId) {
-                    feedback.innerText = "Invalid Registration Link";
+                if (!spaceId || !expiryTime) {
+                    feedback.innerText = "Invalid or Missing Registration Link Params";
                     feedback.style.color = "#ef4444";
                     return;
                 }
+
+                if (Date.now() > expiryTime) {
+                    feedback.innerText = "This registration link has expired.";
+                    feedback.style.color = "#ef4444";
+                    return;
+                }
+
+                startTimer();
 
                 // 1. Fetch Workspace Config
                 const spaceRef = doc(db, 'spaces', spaceId);
