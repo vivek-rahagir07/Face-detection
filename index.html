@@ -3,29 +3,78 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CognitoAttend</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>CognitoAttend | Next-Gen Biometric Attendance System</title>
+    <meta name="description"
+        content="Secure, high-speed biometric face attendance system with real-time analytics, magic link registration, and 3D digital plexus visualization. Professional attendance management for workspaces.">
+    <meta name="keywords"
+        content="face attendance, biometric, attendance system, real-time analytics, face detection, CognitoAttend, workplace management">
+    <meta name="author" content="CognitoAttend">
+    <link rel="canonical" href="https://cognitoattend.com/">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://cognitoattend.com/">
+    <meta property="og:title" content="CognitoAttend | Next-Gen Biometric Attendance">
+    <meta property="og:description"
+        content="Professional face recognition attendance with 3D plexus HUD. Fast, secure, and mobile-ready.">
+    <meta property="og:image" content="folder/cognito attend.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://cognitoattend.com/">
+    <meta property="twitter:title" content="CognitoAttend | Biometric Attendance">
+    <meta property="twitter:description"
+        content="Professional face recognition attendance with 3D plexus HUD. Fast, secure, and mobile-ready.">
+    <meta property="twitter:image" content="folder/cognito attend.png">
+
+    <!-- PWA & Mobile -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="folder/cognito attend.png">
+    <meta name="msapplication-TileColor" content="#000000">
 
-    <!-- Face API -->
-    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <!-- Performance: Preconnect & Preload -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://unpkg.com">
+    <link rel="preload" href="folder/cognito attend.png" as="image">
+    <link rel="preload" href="folder/hacker2.png" as="image">
 
-    <!-- Three.js for 3D Animations -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+    <!-- Face API (Deferred for Performance) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
-    <!-- QRCode.js for Local QR Generation -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <!-- Three.js for 3D Animations (Deferred) -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+
+    <!-- QRCode.js for Local QR Generation (Deferred) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
     <!-- External CSS -->
     <link rel="stylesheet" href="style.css">
     <script type="module" src="https://unpkg.com/@splinetool/viewer@1.12.34/build/spline-viewer.js"></script>
 
-    <!-- Chart.js for Analytics -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js for Analytics (Deferred) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "CognitoAttend",
+      "operatingSystem": "Web",
+      "applicationCategory": "BusinessApplication",
+      "description": "Biometric face recognition attendance management system.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
 </head>
 
 <body>
@@ -275,13 +324,18 @@
             </div>
         </div>
     </div>
-    </div>
 
     <!-- Bottom Aesthetic Strip -->
     <div class="bottom-strip">
-        <div class="nav-logo-container">
-            <img src="folder/cognito attend.png" alt="CognitoAttend Logo" class="shining-logo">
-            <span class="nav-brand">CognitoAttend</span>
+        <div class="footer-info">
+            <div class="footer-credits">CognitoAttend by <span>Vivek Yadav (Rahagir)</span></div>
+            <div class="footer-contact">
+                <a href="tel:9996445592">📞 9996445592</a>
+                <a href="mailto:vivek.yadav.25cse@bmu.edu.in">📧 vivek.yadav.25cse@bmu.edu.in</a>
+            </div>
+        </div>
+        <div class="footer-social">
+            <a href="https://www.linkedin.com/in/vivek-yadav-1142213a0/" target="_blank" class="social-link">LinkedIn</a>
         </div>
     </div>
 
