@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registration Portal - CognitoAttend</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            background: #000;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+            padding-bottom: 80px;
+        }
+
+        .reg-container {
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .camera-box {
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: #111;
+            border-radius: 24px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            margin-bottom: 25px;
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .form-card {
+            background: rgba(15, 15, 15, 0.9);
+            padding: 30px;
+            border-radius: 32px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #10b981;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 8px;
+        }
+
+        input,
+        select {
+            width: 100%;
+            background: #1a1a1a;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 14px 18px;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            border-color: #10b981;
+            background: #222;
+        }
+
+        .btn-register {
+            width: 100%;
+            background: #10b981;
+            color: #000;
+            border: none;
+            padding: 18px;
+            border-radius: 16px;
+            font-weight: 800;
+            font-size: 1rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .btn-register:disabled {
+            background: #222;
+            color: #555;
+            cursor: not-allowed;
+        }
+
+        #feedback {
+            margin-top: 15px;
+            font-size: 0.85rem;
+            text-align: center;
+            min-height: 20px;
+        }
+
+        .success-screen {
+            display: none;
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .success-icon {
+            font-size: 5rem;
+            color: #10b981;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Biometric Preloader -->
+    <div id="preloader">
+        <style>
+            #preloader {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: #000;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                z-index: 9999;
+                transition: opacity 0.8s ease, visibility 0.8s;
+            }
+
+            #preloader.fade-out {
+                opacity: 0;
+                visibility: hidden;
+            }
+
+            .bio-scanner {
+                position: relative;
+                width: 200px;
+                height: 200px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-bottom: 30px;
+            }
+
+            .bio-fingerprint {
+                width: 150px;
+                height: 150px;
+                background: url('folder/photo.png') no-repeat center;
+                background-size: contain;
+                filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.5));
+                opacity: 0.7;
+                animation: bio-pulse 2s ease-in-out infinite;
+            }
+
+            .bio-scan-line {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 4px;
+                background: linear-gradient(to right, transparent, #10b981, transparent);
+                box-shadow: 0 0 15px #10b981;
+                z-index: 10;
+                animation: bio-scan 2.5s ease-in-out infinite;
+            }
+
+            @keyframes bio-scan {
+
+                0%,
+                100% {
+                    top: 10%;
+                    opacity: 0;
+                }
+
+                10%,
+                90% {
+                    opacity: 1;
+                }
+
+                50% {
+                    top: 90%;
+                }
+            }
+
+            @keyframes bio-pulse {
+
+                0%,
+                100% {
+                    transform: scale(1);
+                    opacity: 0.5;
+                }
+
+                50% {
+                    transform: scale(1.05);
+                    opacity: 0.8;
+                }
+            }
+
+            .bio-text {
+                font-family: 'Outfit', sans-serif;
+                color: #10b981;
+                text-transform: uppercase;
+                letter-spacing: 0.3em;
+                font-size: 0.8rem;
+                font-weight: 700;
+                text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+                animation: bio-text-glow 1.5s ease-in-out infinite;
+            }
+
+            @keyframes bio-text-glow {
+
+                0%,
+                100% {
+                    opacity: 0.6;
+                }
+
+                50% {
+                    opacity: 1;
+                    text-shadow: 0 0 20px rgba(16, 185, 129, 0.8);
+                }
+            }
+
+            .bio-status {
+                margin-top: 15px;
+                font-family: 'Outfit', sans-serif;
+                color: rgba(255, 255, 255, 0.5);
+                font-size: 0.7rem;
+                letter-spacing: 0.1em;
+            }
+        </style>
+        <div class="bio-scanner">
+            <div class="bio-fingerprint"></div>
+            <div class="bio-scan-line"></div>
+        </div>
+        <div class="bio-text">Biometric Scanning</div>
+        <div class="bio-status">Initializing CognitoAttend...</div>
+    </div>
+
+    <div class="reg-container" id="reg-app">
+        <div class="header-logo-container" style="display: flex; justify-content: center; margin-bottom: 20px;">
+            <img src="folder/cognito attend.png" alt="CognitoAttend Logo" class="header-logo"
+                style="width: 80px; height: auto; filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.6)); animation: header-logo-pulse 4s ease-in-out infinite;">
+        </div>
+        <style>
+            @keyframes header-logo-pulse {
+
+                0%,
+                100% {
+                    transform: scale(1) translateY(0);
+                    filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.6));
+                }
+
+                50% {
+                    transform: scale(1.05) translateY(-5px);
+                    filter: drop-shadow(0 0 25px rgba(16, 185, 129, 0.4));
+                }
+            }
+        </style>
+
+        <div class="camera-box">
+            <video id="video" autoplay muted playsinline></video>
+            <canvas id="overlay"></canvas>
+            <div id="loading-overlay"
+                style="position:absolute; inset:0; background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; flex-direction:column; z-index:10;">
+                <div
+                    style="width:40px; height:40px; border:3px solid #10b981; border-top-color:transparent; border-radius:50%; animation:spin 1s linear infinite;">
+                </div>
+                <p style="margin-top:15px; font-size:0.8rem; color:#10b981;">Starting Camera...</p>
+            </div>
+        </div>
+
+        <div class="form-card" id="form-view">
+            <div class="input-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" placeholder="Enter your official name" autocomplete="off">
+            </div>
+            <div id="dynamic-fields">
+                <!-- Fields like Reg No, Course will be injected here -->
+            </div>
+            <div class="input-group">
+                <label for="gender">Gender</label>
+                <select id="gender">
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <button id="btn-submit" class="btn-register" disabled>Register Profile</button>
+            <div id="feedback">Initializing AI Models...</div>
+        </div>
+
+        <div class="success-screen" id="success-view">
+            <div class="success-icon">✓</div>
+            <h2 style="font-weight:800; margin-bottom:10px;">Registration Submitted</h2>
+            <p style="color:#888; line-height:1.6;">Your biometric profile is now pending admin approval. You will be
+                able to mark attendance once verified.</p>
+        </div>
+    </div>
+
+    <div class="bottom-strip">
+        <div class="nav-logo-container">
+            <img src="folder/cognito attend.png" alt="Logo" class="shining-logo">
+            <span class="nav-brand">CognitoAttend</span>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, doc, getDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const startTime = Date.now();
+
+        // Firebase Config (Must match main.js)
+        const firebaseConfig = {
+            apiKey: "AIzaSyAf9xAmQtFZcvE8tvxpI-tU5teS89Dc6II",
+            authDomain: "live-face-attendence-detection.firebaseapp.com",
+            projectId: "live-face-attendence-detection",
+            storageBucket: "live-face-attendence-detection.firebasestorage.app",
+            messagingSenderId: "67072118378",
+            appId: "1:67072118378:web:a988976e9233434b3fc413"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('overlay');
+        const feedback = document.getElementById('feedback');
+        const btnSubmit = document.getElementById('btn-submit');
+        const inputName = document.getElementById('name');
+        const dynamicFields = document.getElementById('dynamic-fields');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const preloader = document.getElementById('preloader');
+
+        const params = new URLSearchParams(window.location.search);
+        const spaceId = params.get('s');
+
+        let lastDetection = null;
+        let isReady = false;
+        let workspaceConfig = null;
+
+        // Model loading
+        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+
+        async function startPortal() {
+            try {
+                if (!spaceId) {
+                    feedback.innerText = "Invalid Registration Link";
+                    feedback.style.color = "#ef4444";
+                    return;
+                }
+
+                // 1. Fetch Workspace Config
+                const spaceRef = doc(db, 'spaces', spaceId);
+                const spaceSnap = await getDoc(spaceRef);
+
+                if (!spaceSnap.exists()) {
+                    feedback.innerText = "Workspace not found";
+                    return;
+                }
+                workspaceConfig = spaceSnap.data();
+                setupDynamicFields(workspaceConfig.config?.fields || ['regNo', 'course']);
+
+                // 2. Load Models
+                await Promise.all([
+                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
+
+                // 3. Start Camera
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                video.srcObject = stream;
+
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    loadingOverlay.style.display = 'none';
+
+                    // Controlled preloader exit (min 3s)
+                    const elapsed = Date.now() - startTime;
+                    const remaining = Math.max(0, 3000 - elapsed);
+                    setTimeout(() => {
+                        if (preloader) {
+                            preloader.classList.add('fade-out');
+                            setTimeout(() => preloader.style.display = 'none', 800);
+                        }
+                    }, remaining);
+
+                    isReady = true;
+                    requestAnimationFrame(processFrame);
+                };
+
+                await signInAnonymously(auth);
+                feedback.innerText = "Ready to scan face";
+                feedback.style.color = "#10b981";
+
+            } catch (err) {
+                console.error(err);
+                feedback.innerText = "Hardware error: " + err.message;
+                feedback.style.color = "#ef4444";
+            }
+        }
+
+        function setupDynamicFields(fieldNamesArray) {
+            const fieldLabels = {
+                regNo: 'Registration Number',
+                course: 'Course / Department',
+                email: 'Email ID',
+                phone: 'Phone Number'
+            };
+            dynamicFields.innerHTML = '';
+            fieldNamesArray.forEach(f => {
+                const group = document.createElement('div');
+                group.className = 'input-group';
+                group.innerHTML = `<label>${fieldLabels[f] || f}</label><input type="text" id="reg-${f}" placeholder="Enter ${fieldLabels[f] || f}">`;
+                dynamicFields.appendChild(group);
+            });
+        }
+
+        async function processFrame() {
+            if (!isReady) return;
+
+            const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+            lastDetection = detection;
+
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (detection) {
+                const box = detection.detection.box;
+                drawHUD(ctx, box, inputName.value.trim());
+                btnSubmit.disabled = false;
+                feedback.innerText = "Face Locked";
+                feedback.style.color = "#22c55e";
+            } else {
+                btnSubmit.disabled = true;
+                feedback.innerText = "Move closer to camera";
+                feedback.style.color = "#10b981";
+            }
+
+            requestAnimationFrame(processFrame);
+        }
+
+        function drawHUD(ctx, box, name) {
+            const color = '#10b981';
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            const size = 30;
+            const pad = 10;
+            const { x, y, width: w, height: h } = box;
+
+            // Simple Corners
+            const drawC = (cx, cy, dx, dy) => {
+                ctx.beginPath();
+                ctx.moveTo(cx, cy + dy * size); ctx.lineTo(cx, cy); ctx.lineTo(cx + dx * size, cy);
+                ctx.stroke();
+            };
+            drawC(x - pad, y - pad, 1, 1); drawC(x + w + pad, y - pad, -1, 1);
+            drawC(x - pad, y + h + pad, 1, -1); drawC(x + w + pad, y + h + pad, -1, -1);
+
+            if (name) {
+                ctx.font = '900 14px Outfit';
+                const txt = `LINKING: ${name.toUpperCase()}`;
+                const tw = ctx.measureText(txt).width;
+                const px = x + w / 2 - (tw + 20) / 2;
+                const py = y - pad - 40;
+
+                ctx.fillStyle = color;
+                ctx.beginPath(); ctx.roundRect(px, py, tw + 20, 26, 13); ctx.fill();
+                ctx.fillStyle = '#000'; ctx.fillText(txt, px + 10, py + 17);
+            }
+        }
+
+        btnSubmit.onclick = async () => {
+            const name = inputName.value.trim();
+            if (!name) return alert("Please enter your name.");
+            if (!lastDetection) return alert("Please align your face with the camera.");
+
+            btnSubmit.disabled = true;
+            feedback.innerText = "Saving profile...";
+
+            try {
+                // Check if name exists in space
+                const q = query(collection(db, 'users'), where("spaceId", "==", spaceId), where("name", "==", name));
+                const snap = await getDocs(q);
+                if (!snap.empty) throw new Error("This name is already registered in this workspace.");
+
+                const metadata = { gender: document.getElementById('gender').value };
+                if (workspaceConfig.config?.fields) {
+                    workspaceConfig.config.fields.forEach(f => {
+                        const el = document.getElementById(`reg-${f}`);
+                        if (el) metadata[f] = el.value.trim();
+                    });
+                }
+
+                await addDoc(collection(db, 'users'), {
+                    spaceId: spaceId,
+                    name: name,
+                    ...metadata,
+                    descriptor: Array.from(lastDetection.descriptor),
+                    attendanceCount: 0,
+                    lastAttendance: null,
+                    approved: false,
+                    createdAt: new Date().toISOString()
+                });
+
+                document.getElementById('form-view').style.display = 'none';
+                document.getElementById('success-view').style.display = 'block';
+                feedback.style.display = 'none';
+
+            } catch (err) {
+                alert(err.message);
+                btnSubmit.disabled = false;
+                feedback.innerText = "Error: " + err.message;
+            }
+        };
+
+        startPortal();
+    </script>
+
+    <style>
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</body>
+
+</html>

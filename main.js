@@ -1751,7 +1751,7 @@ if (btnGenerateMagic) {
         if (!currentSpace) return alert("Enter a workspace first");
         let baseUrl = window.location.href.split('?')[0].split('#')[0].replace('index.html', '');
         if (!baseUrl.endsWith('/')) baseUrl += '/';
-        const url = `${baseUrl}?magic=${currentSpace.id}`;
+        const url = `${baseUrl}register.html?s=${currentSpace.id}`;
         magicLinkInput.value = url;
         magicLinkContainer.classList.remove('hidden');
         btnGenerateMagic.innerText = "🔄 Regenerated";
@@ -1767,27 +1767,8 @@ if (btnCopyMagic) {
     });
 }
 
-// Check for Magic Link on load
 window.addEventListener('load', async () => {
     initVoiceCommands();
-    const urlParams = new URLSearchParams(window.location.search);
-    const magicId = urlParams.get('magic');
-    if (magicId) {
-        isMagicLinkSession = true;
-        try {
-            const spaceSnap = await getDoc(doc(db, COLL_SPACES, magicId));
-            if (spaceSnap.exists()) {
-                currentSpace = { id: magicId, ...spaceSnap.data() };
-                currentSpaceTitle.innerText = currentSpace.name;
-                setMode('registration');
-                showView('view-operation');
-                initSystem();
-                showToast("Magic Link Active: Admin approval required after registration.");
-            }
-        } catch (e) {
-            console.error("Magic Link Fail:", e);
-        }
-    }
 });
 
 // Voice Commands Logic
