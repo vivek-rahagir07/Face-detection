@@ -1325,12 +1325,13 @@ if (btnDeletePerson) {
 function drawCustomFaceBox(ctx, box, label, isMatch, confidence, resultLabel) {
     const { x, y, width, height } = box;
     const isUnknown = resultLabel === 'unknown';
-    const color = isMatch ? '#22c55e' : (isUnknown ? '#ef4444' : '#00f2ff');
-    const cornerSize = 25;
-    const padding = 10;
+    // Emerald Green while searching, Neon Green for Match, Red for Stranger
+    const color = isMatch ? '#22c55e' : (isUnknown ? '#ef4444' : '#10b981');
+    const cornerSize = 30; // Larger corners
+    const padding = 15;
 
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3; // Thicker lines for impact
 
     // 1. Digital Double Corner Brackets
     const drawCorner = (cx, cy, dx, dy) => {
@@ -1340,13 +1341,15 @@ function drawCustomFaceBox(ctx, box, label, isMatch, confidence, resultLabel) {
         ctx.lineTo(cx + dx * cornerSize, cy);
         ctx.stroke();
 
-        // Inner bracket offset
-        const offset = 6;
+        // Inner bracket
+        ctx.lineWidth = 1.5;
+        const offset = 8;
         ctx.beginPath();
-        ctx.moveTo(cx + dx * offset, cy + dy * (cornerSize + offset));
+        ctx.moveTo(cx + dx * offset, cy + dy * (cornerSize - 5));
         ctx.lineTo(cx + dx * offset, cy + dy * offset);
-        ctx.lineTo(cx + dx * (cornerSize + offset), cy + dy * offset);
+        ctx.lineTo(cx + dx * (cornerSize - 5), cy + dy * offset);
         ctx.stroke();
+        ctx.lineWidth = 3;
     };
 
     drawCorner(x - padding, y - padding, 1, 1); // TL
@@ -1354,29 +1357,31 @@ function drawCustomFaceBox(ctx, box, label, isMatch, confidence, resultLabel) {
     drawCorner(x - padding, y + height + padding, 1, -1); // BL
     drawCorner(x + width + padding, y + height + padding, -1, -1); // BR
 
-    // 2. Status Pill (The "Green Sign")
+    // 2. Status Pill (Aligned to "Forehead" area inside the face box)
     if (isMatch || isUnknown) {
-        ctx.font = '900 12px Inter';
-        const statusText = isMatch ? `${label.toUpperCase()} [${confidence}%]` : 'STRANGER_DETECTED';
+        ctx.font = '900 13px Inter';
+        const statusText = isMatch ? `${label.toUpperCase()} [${confidence}%]` : 'UNKNOWN_ACCESS_DENIED';
         const textWidth = ctx.measureText(statusText).width;
         const pillWidth = textWidth + 30;
-        const pillHeight = 24;
+        const pillHeight = 26;
+
+        // Positioned at the top of the detected face area
         const pillX = x + (width / 2) - (pillWidth / 2);
-        const pillY = y - padding - 40;
+        const pillY = y + (height * 0.15); // forehead area
 
         // Glow
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = 20;
         ctx.shadowColor = color;
 
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.roundRect(pillX, pillY, pillWidth, pillHeight, 12);
+        ctx.roundRect(pillX, pillY, pillWidth, pillHeight, 6);
         ctx.fill();
 
         ctx.shadowBlur = 0;
 
         ctx.fillStyle = '#000';
-        ctx.fillText(statusText, pillX + 15, pillY + 16);
+        ctx.fillText(statusText, pillX + 15, pillY + 18);
     }
 }
 
@@ -1392,28 +1397,28 @@ function drawPath(ctx, points, close = false) {
 }
 
 // Optimized Mesh Drawing
-function drawFaceMesh(ctx, landmarks, color = '#00f2ff') {
+function drawFaceMesh(ctx, landmarks, color = '#10b981') {
     const points = landmarks.positions;
     ctx.strokeStyle = color;
-    ctx.globalAlpha = 0.3;
+    ctx.globalAlpha = 0.25; // Darker/Subtle mesh
     ctx.lineWidth = 0.5;
 
     // Plexus Network
     ctx.beginPath();
     points.forEach((p, i) => {
         // Connect to next few points to create a web/triangulation look
-        for (let j = i + 1; j < i + 5 && j < points.length; j++) {
+        for (let j = i + 1; j < i + 4 && j < points.length; j++) {
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(points[j].x, points[j].y);
         }
     });
     ctx.stroke();
 
-    // Nodes
-    ctx.globalAlpha = 0.8;
+    // Nodes (Emerald Glow)
+    ctx.globalAlpha = 0.6;
     ctx.fillStyle = color;
     points.forEach((p, i) => {
-        if (i % 3 === 0) {
+        if (i % 4 === 0) {
             ctx.beginPath();
             ctx.arc(p.x, p.y, 1, 0, Math.PI * 2);
             ctx.fill();
@@ -1496,7 +1501,7 @@ video.addEventListener('play', () => {
             const displayLabel = isMatch ? result.label : 'SEARCHING...';
 
             const isUnknown = result.label === 'unknown';
-            const statusColor = isMatch ? '#22c55e' : (isUnknown ? '#ef4444' : '#00f2ff');
+            const statusColor = isMatch ? '#22c55e' : (isUnknown ? '#ef4444' : '#10b981');
 
             let drawBox = box;
             if (isMatch) {
