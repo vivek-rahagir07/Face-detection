@@ -572,18 +572,18 @@ input:focus {
 
 .footer-brand-name {
     font-family: 'Outfit', sans-serif;
-    font-size: 1.2rem;
-    font-weight: 300;
-    letter-spacing: 0.4em;
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
     color: #fff;
-    text-transform: uppercase;
+    text-transform: none;
     background: linear-gradient(90deg, #fff, var(--accent, #10b981), #fff);
     background-size: 200% auto;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
     animation: footer-shine 4s linear infinite;
-    filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.2));
+    filter: drop-shadow(0 0 12px rgba(16, 185, 129, 0.3));
 }
 
 @keyframes footer-shine {
