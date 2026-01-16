@@ -1357,7 +1357,7 @@ function drawCustomFaceBox(ctx, box, label, isMatch, confidence, resultLabel) {
     drawCorner(x - padding, y + height + padding, 1, -1); // BL
     drawCorner(x + width + padding, y + height + padding, -1, -1); // BR
 
-    // 2. Status Pill (Aligned to "Forehead" area inside the face box)
+    // 2. Status Pill (Positioned above the face box)
     if (isMatch || isUnknown) {
         ctx.font = '900 13px Inter';
         const statusText = isMatch ? `${label.toUpperCase()} [${confidence}%]` : 'UNKNOWN_ACCESS_DENIED';
@@ -1365,9 +1365,9 @@ function drawCustomFaceBox(ctx, box, label, isMatch, confidence, resultLabel) {
         const pillWidth = textWidth + 30;
         const pillHeight = 26;
 
-        // Positioned at the top of the detected face area
+        // Positioned above the detected face area
         const pillX = x + (width / 2) - (pillWidth / 2);
-        const pillY = y + (height * 0.15); // forehead area
+        const pillY = y - padding - pillHeight - 5;
 
         // Glow
         ctx.shadowBlur = 20;
@@ -1375,7 +1375,7 @@ function drawCustomFaceBox(ctx, box, label, isMatch, confidence, resultLabel) {
 
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.roundRect(pillX, pillY, pillWidth, pillHeight, 6);
+        ctx.roundRect(pillX, pillY, pillWidth, pillHeight, 13);
         ctx.fill();
 
         ctx.shadowBlur = 0;
