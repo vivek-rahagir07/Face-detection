@@ -145,15 +145,19 @@ h1 {
     border: 1px solid rgba(255, 255, 255, 0.05);
     aspect-ratio: 16/9;
     width: 100%;
+    height: auto;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @media (max-width: 600px) {
     .camera-wrapper {
-        aspect-ratio: 4/3;
-        border-radius: 20px;
+        aspect-ratio: auto;
+        height: calc(100vh - 120px);
+        border-radius: 0;
+        border: none;
     }
 }
 
@@ -1784,6 +1788,7 @@ input:focus {
 #overlay {
     animation: mesh-pulse 4s infinite ease-in-out;
 }
+
 /* Final Mobile Polish */
 @media (max-width: 600px) {
     :root {
@@ -1828,17 +1833,22 @@ input:focus {
     }
 
     /* Typography Polish */
-    h1 { font-size: 2.2rem; }
-    h2 { font-size: 1.6rem; }
-    
+    h1 {
+        font-size: 2.2rem;
+    }
+
+    h2 {
+        font-size: 1.6rem;
+    }
+
     .mobile-welcome-text h1 {
         font-size: 2.8rem;
     }
 }
 
 /* Enhanced Tap Feedback */
-button:active, 
-.list-item:active, 
+button:active,
+.list-item:active,
 .management-person-card:active {
     transform: scale(0.96);
     filter: brightness(0.9);
@@ -1860,4 +1870,155 @@ button:active,
 ::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
+}
+/* Mobile Sidebar System */
+.sidebar-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100vh;
+    background: rgba(10, 10, 10, 0.98);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    z-index: 3000;
+    border-right: 1px solid rgba(0, 242, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(0);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 20px 0 50px rgba(0,0,0,0.8);
+}
+
+.sidebar-container.hidden {
+    transform: translateX(-105%);
+    display: flex !important; /* Keep it flex but off-screen */
+}
+
+.sidebar-header {
+    padding: 30px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.sidebar-header h3 {
+    margin: 0;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.btn-close-sm {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 1.8rem;
+    cursor: pointer;
+}
+
+.sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.sidebar-section {
+    margin-bottom: 30px;
+}
+
+.sidebar-section h4 {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 15px;
+    padding-left: 10px;
+}
+
+.nav-item {
+    width: 100%;
+    padding: 14px 18px;
+    background: transparent;
+    border: none;
+    border-radius: 12px;
+    color: var(--text-muted);
+    text-align: left;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.2s;
+    margin-bottom: 4px;
+}
+
+.nav-item:hover {
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+}
+
+.nav-item.active {
+    background: var(--accent);
+    color: #000;
+    box-shadow: 0 0 20px rgba(0, 242, 255, 0.3);
+}
+
+.mobile-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(5px);
+    z-index: 2999;
+    animation: fadeIn 0.3s ease;
+}
+
+/* Operation Layout Tweaks */
+@media (max-width: 600px) {
+    .main-container {
+        padding: 0;
+        gap: 0;
+    }
+
+    .operation-container {
+        padding: 0;
+    }
+
+    .operation-header {
+        border-radius: 0;
+        margin-bottom: 0;
+        padding: 15px 10px;
+        position: relative;
+        z-index: 100;
+        border-top: none;
+        border-left: none;
+        border-right: none;
+    }
+
+    .controls-panel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        max-width: none;
+        border-radius: 30px 30px 0 0;
+        transform: translateY(100%);
+        transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 200;
+        padding: 20px;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+
+    .controls-panel.active {
+        transform: translateY(0);
+        box-shadow: 0 -10px 40px rgba(0,0,0,0.8);
+    }
+
+    /* Zoom fix for inputs */
+    input {
+        font-size: 16px !important;
+    }
 }

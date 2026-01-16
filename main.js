@@ -146,6 +146,15 @@ const btnConfirmYes = document.getElementById('btn-confirm-yes');
 const btnConfirmNo = document.getElementById('btn-confirm-no');
 const toastContainer = document.getElementById('toast-container');
 
+// Mobile Sidebar DOM Elements
+const mobileSidebar = document.getElementById('mobile-sidebar');
+const btnMobileMenu = document.getElementById('btn-mobile-menu');
+const btnCloseSidebar = document.getElementById('btn-close-sidebar');
+const sideNavItems = document.querySelectorAll('#mobile-sidebar .nav-item[data-mode]');
+const sideBtnQr = document.getElementById('side-btn-qr');
+const sideBtnHistory = document.getElementById('side-btn-history');
+const sideBtnExport = document.getElementById('side-btn-export');
+
 let confirmCallback = null;
 
 // HUD Animation State
@@ -470,6 +479,68 @@ if (btnPortalContinue) {
         portalCard.style.animation = 'fadeInPortal 0.6s ease-out forwards';
     });
 }
+
+// Mobile Sidebar Logic
+function toggleSidebar(show) {
+    if (show) {
+        mobileSidebar.classList.remove('hidden');
+        // Create overlay if not exists
+        if (!document.querySelector('.mobile-overlay')) {
+            const overlay = document.createElement('div');
+            overlay.className = 'mobile-overlay';
+            overlay.addEventListener('click', () => toggleSidebar(false));
+            document.body.appendChild(overlay);
+        }
+    } else {
+        mobileSidebar.classList.add('hidden');
+        const overlay = document.querySelector('.mobile-overlay');
+        if (overlay) overlay.remove();
+    }
+}
+
+if (btnMobileMenu) btnMobileMenu.addEventListener('click', () => toggleSidebar(true));
+if (btnCloseSidebar) btnCloseSidebar.addEventListener('click', () => toggleSidebar(false));
+
+// Sidebar Navigation
+sideNavItems.forEach(item => {
+    item.addEventListener('click', () => {
+        const mode = item.dataset.mode;
+        // Trigger the corresponding mode button click
+        const targetBtn = document.getElementById(`btn-mode-${mode === 'attend' ? 'attend' : mode === 'reg' ? 'reg' : mode === 'analytics' ? 'analytics' : 'config'}`);
+        if (targetBtn) targetBtn.click();
+
+        // Update active state in sidebar
+        sideNavItems.forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+
+        toggleSidebar(false);
+
+        // On mobile, show the controls panel as an overlay when a mode is picked
+        if (window.innerWidth <= 600) {
+            const panel = document.querySelector('.controls-panel');
+            if (panel) panel.classList.add('active');
+        }
+    });
+});
+
+if (sideBtnQr) sideBtnQr.addEventListener('click', () => {
+    btnQrPresence.click();
+    toggleSidebar(false);
+});
+
+if (sideBtnHistory) sideBtnHistory.addEventListener('click', () => {
+    btnHistory.click();
+    toggleSidebar(false);
+});
+
+if (sideBtnExport) sideBtnExport.addEventListener('click', () => {
+    btnExport.click();
+    toggleSidebar(false);
+});
+
+// Close controls panel on mobile when clicking outside or specific toggle
+// We can add a "back" button to the panel later if needed, 
+// for now users can switch modes via sidebar to reset or we can add a close handle.
 
 // QR Modal Controls
 if (btnQrPresence) {

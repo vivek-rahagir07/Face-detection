@@ -96,12 +96,36 @@
     <div id="view-operation" class="operation-container hidden">
         <div class="operation-header">
             <button id="btn-exit-workspace" class="btn-secondary btn-sm">🚪 Exit Workspace</button>
+            <button id="btn-mobile-menu" class="btn-secondary btn-sm mobile-only">☰ Menu</button>
             <button id="btn-qr-presence" class="btn-primary btn-sm" style="background: var(--accent); color: #000;">📱
                 QR Presence</button>
             <h2 id="current-space-title">Workspace Name</h2>
             <div style="display: flex; gap: 8px; align-items: center;">
                 <button id="btn-history" class="btn-secondary btn-sm">📜 History</button>
                 <div id="system-status" class="status-badge status-loading">Initializing System...</div>
+            </div>
+        </div>
+
+        <!-- Mobile Side Navigation -->
+        <div id="mobile-sidebar" class="sidebar-container hidden">
+            <div class="sidebar-header">
+                <h3>Menu</h3>
+                <button id="btn-close-sidebar" class="btn-close-sm">&times;</button>
+            </div>
+            <div class="sidebar-content">
+                <div class="sidebar-section">
+                    <h4>Navigation</h4>
+                    <button class="nav-item active" data-mode="attend">🕒 Attendance</button>
+                    <button class="nav-item" data-mode="reg">👤 Registration</button>
+                    <button class="nav-item" data-mode="analytics">👥 People Stats</button>
+                    <button class="nav-item" data-mode="config">⚙️ Settings</button>
+                </div>
+                <div class="sidebar-section">
+                    <h4>Actions</h4>
+                    <button id="side-btn-qr" class="nav-item">📱 QR Presence</button>
+                    <button id="side-btn-history" class="nav-item">📜 History</button>
+                    <button id="side-btn-export" class="nav-item">📥 Export CSV</button>
+                </div>
             </div>
         </div>
 
