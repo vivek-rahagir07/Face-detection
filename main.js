@@ -8,7 +8,7 @@ const preloader = document.getElementById('preloader');
 const minPreloaderTime = 3000; // 3 seconds
 const startTime = Date.now();
 
-window.addEventListener('load', () => {
+const hidePreloader = () => {
     const elapsed = Date.now() - startTime;
     const remaining = Math.max(0, minPreloaderTime - elapsed);
 
@@ -18,7 +18,13 @@ window.addEventListener('load', () => {
             setTimeout(() => preloader.style.display = 'none', 800);
         }
     }, remaining);
-});
+};
+
+if (document.readyState === 'complete') {
+    hidePreloader();
+} else {
+    window.addEventListener('load', hidePreloader);
+}
 
 // --- PWA Service Worker Registration ---
 if ('serviceWorker' in navigator) {
