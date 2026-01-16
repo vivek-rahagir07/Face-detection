@@ -93,6 +93,31 @@
         <div class="bio-status">Initializing CognitoAttend...</div>
     </div>
 
+    <script>
+        (function () {
+            const preloader = document.getElementById('preloader');
+            const startTime = Date.now();
+            const minTime = 3000;
+
+            function hide() {
+                const elapsed = Date.now() - startTime;
+                const remaining = Math.max(0, minTime - elapsed);
+                setTimeout(() => {
+                    if (preloader) {
+                        preloader.classList.add('fade-out');
+                        setTimeout(() => preloader.style.display = 'none', 800);
+                    }
+                }, remaining);
+            }
+
+            if (document.readyState === 'complete') hide();
+            else window.addEventListener('load', hide);
+
+            // Fallback for local testing/CORS issues
+            setTimeout(hide, 5000);
+        })();
+    </script>
+
     <!-- Portal -->
     <div id="view-portal" class="portal-container splash-active">
         <div class="portal-spline">

@@ -3,28 +3,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, collection, addDoc, updateDoc, doc, getDoc, onSnapshot, increment, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// --- Preloader Logic ---
-const preloader = document.getElementById('preloader');
-const minPreloaderTime = 3000; // 3 seconds
-const startTime = Date.now();
-
-const hidePreloader = () => {
-    const elapsed = Date.now() - startTime;
-    const remaining = Math.max(0, minPreloaderTime - elapsed);
-
-    setTimeout(() => {
-        if (preloader) {
-            preloader.classList.add('fade-out');
-            setTimeout(() => preloader.style.display = 'none', 800);
-        }
-    }, remaining);
-};
-
-if (document.readyState === 'complete') {
-    hidePreloader();
-} else {
-    window.addEventListener('load', hidePreloader);
-}
 
 // --- PWA Service Worker Registration ---
 if ('serviceWorker' in navigator) {
