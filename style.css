@@ -565,21 +565,21 @@ input:focus {
 }
 
 .footer-brand-logo {
-    width: 52px;
+    width: 32px;
     height: auto;
-    filter: drop-shadow(0 0 20px var(--accent, #10b981));
+    filter: drop-shadow(0 0 10px var(--accent, #10b981));
     transition: transform 0.3s ease;
 }
 
 .footer-brand-logo:hover {
-    transform: scale(1.1) rotate(5deg);
+    transform: scale(1.1);
 }
 
 .footer-brand-name {
     font-family: 'Outfit', sans-serif;
-    font-size: 1.5rem;
+    font-size: 1.1rem;
     font-weight: 300;
-    letter-spacing: 0.5em;
+    letter-spacing: 0.2em;
     color: #fff;
     text-transform: uppercase;
     background: linear-gradient(90deg, #fff, var(--accent, #10b981), #fff);
@@ -588,7 +588,6 @@ input:focus {
     background-clip: text;
     -webkit-text-fill-color: transparent;
     animation: footer-shine 4s linear infinite;
-    filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.2));
 }
 
 @keyframes footer-shine {
