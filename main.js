@@ -177,22 +177,6 @@ function updateLiveDateTime() {
     const now = new Date();
     const options = { weekday: 'short', month: 'short', day: 'numeric' };
     if (dateDisplay) dateDisplay.innerText = now.toLocaleDateString('en-US', options);
-
-    // Update HUD Data Left/Right randomly for "Pro" effect
-    const hudL = document.getElementById('hud-data-left');
-    const hudR = document.getElementById('hud-data-right');
-    if (hudL && hudR) {
-        const stats = [
-            `CORE_TEMP: 34.2C`,
-            `SYS_LOAD: ${Math.floor(Math.random() * 20) + 10}%`,
-            `GRID_SYNC: ACTIVE`,
-            `BIOMETRIC_LOCK: TRUE`,
-            `MEMORY: 0x${Math.random().toString(16).slice(2, 8).toUpperCase()}`,
-            `UPTIME: ${Math.floor(performance.now() / 1000)}s`
-        ];
-        hudL.innerHTML = stats.slice(0, 3).map(s => `<div class="hud-data-bit">${s}</div>`).join('');
-        hudR.innerHTML = stats.slice(3, 6).map(s => `<div class="hud-data-bit">${s}</div>`).join('');
-    }
 }
 setInterval(updateLiveDateTime, 60000);
 updateLiveDateTime();
@@ -1478,42 +1462,15 @@ video.addEventListener('play', () => {
                 }
             });
         }
-
-        // Night Vision Logic
-        checkLightLevels();
-
     }, DETECTION_INTERVAL);
 
-    function checkLightLevels() {
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = 1;
-        tempCanvas.height = 1;
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.drawImage(video, 0, 0, 1, 1);
-        const data = tempCtx.getImageData(0, 0, 1, 1).data;
-        const brightness = (data[0] + data[1] + data[2]) / 3;
-
-        const wrapper = document.querySelector('.camera-wrapper');
-        if (wrapper) {
-            if (brightness < 40) { // Very low light
-                wrapper.classList.add('night-vision');
-                statusBadge.innerText = "Dark Vision Active";
-            } else {
-                wrapper.classList.remove('night-vision');
-                if (currentMode === 'attendance') statusBadge.innerText = "System Active";
-            }
-        }
-    }
-
-    // --- Smooth HUD Animation Loop (requestAnimationFrame) ---
-    function animateHUD() {
+    // --- Drawing Loop (requestAnimationFrame) ---
+    function animate() {
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Update HUD animation cycle (scan line)
-        // Adjust speed based on device
-        const scanSpeed = isMobile ? 0.02 : 0.04;
-        hudScanCycle += hudScanDir * scanSpeed;
+        // Update animation cycle for scan lines if any
+        hudScanCycle += hudScanDir * (isMobile ? 0.02 : 0.04);
         if (hudScanCycle > 1 || hudScanCycle < 0) hudScanDir *= -1;
 
         if (window.lastDetections && window.lastResults) {
@@ -1526,17 +1483,17 @@ video.addEventListener('play', () => {
                 const isMatch = result.label !== 'unknown' && confidence >= 20;
                 const displayLabel = isMatch ? result.label : 'SEARCHING...';
 
-                // Draw Mesh
+                // Draw Mesh (Optional, keep for coolness but clean)
                 if (detection.landmarks) drawFaceMesh(ctx, detection.landmarks);
 
-                // Draw HUD Box
+                // Draw Standard Box
                 drawCustomFaceBox(ctx, box, displayLabel, isMatch, confidence);
             });
         }
 
-        requestAnimationFrame(animateHUD);
+        requestAnimationFrame(animate);
     }
-    requestAnimationFrame(animateHUD);
+    requestAnimationFrame(animate);
 });
 
 
