@@ -1427,11 +1427,11 @@ function drawFaceMesh(ctx, landmarks, color = '#00f2ff') {
 video.addEventListener('play', () => {
     // Responsive alignment: Use offsetWidth/Height to match the rendered video size
     const updateDisplaySize = () => {
-        const displaySize = { width: video.clientWidth, height: video.clientHeight };
-        faceapi.matchDimensions(canvas, displaySize);
-        // Clear smoothing on resize to prevent "ghost" boxes during transition
+        // Use intrinsic video size for pixel-perfect matching
+        faceapi.matchDimensions(canvas, video);
+        // Clear smoothing on resize
         for (let k in smoothBoxes) delete smoothBoxes[k];
-        return displaySize;
+        return { width: video.videoWidth, height: video.videoHeight };
     };
 
     let displaySize = updateDisplaySize();
@@ -1441,18 +1441,14 @@ video.addEventListener('play', () => {
         if (!isModelsLoaded || !video.srcObject) return;
         if (currentMode === 'registration' || document.hidden) return;
 
-        // Detect
         const detections = await faceapi.detectAllFaces(video)
             .withFaceLandmarks()
             .withFaceDescriptors();
 
-        const resizedDetections = faceapi.resizeResults(detections, displaySize);
         const ctx = canvas.getContext('2d');
-
-        // We'll clear and draw in a separate rAF loop for smoothness, 
-        // but we need the results here for the check.
-        window.lastDetections = resizedDetections;
-        window.lastResults = faceMatcher ? resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor)) : [];
+        // results are in intrinsic coordinates now, no resizing needed
+        window.lastDetections = detections;
+        window.lastResults = faceMatcher ? detections.map(d => faceMatcher.findBestMatch(d.descriptor)) : [];
 
         // UI Feedback: Scanning indicator
         if (detections.length > 0) {
@@ -1463,7 +1459,8 @@ video.addEventListener('play', () => {
 
         if (window.lastResults) {
             window.lastResults.forEach((result, i) => {
-                const isMatch = result.label !== 'unknown' && Math.round((1 - result.distance) * 100) >= 20;
+                // Strict threshold: 0.6 distance (40% match)
+                const isMatch = result.label !== 'unknown' && result.distance <= 0.6;
                 if (isMatch) {
                     detectionHistory[result.label] = (detectionHistory[result.label] || 0) + 1;
                     if (detectionHistory[result.label] >= VALIDATION_THRESHOLD) {
@@ -1493,20 +1490,19 @@ video.addEventListener('play', () => {
         if (hudScanCycle > 1 || hudScanCycle < 0) hudScanDir *= -1;
 
         if (window.lastDetections && window.lastResults) {
-            window.lastResults.forEach((result, i) => {
-                const detection = window.lastDetections[i];
-                if (!detection) return;
+            window.lastDetections.forEach((detection, i) => {
+                const result = window.lastResults[i];
+                if (!detection || !result) return;
 
                 const box = detection.detection.box;
                 const confidence = Math.round((1 - result.distance) * 100);
-                const isMatch = result.label !== 'unknown' && confidence >= 20;
+                const isMatch = result.label !== 'unknown' && result.distance <= 0.6;
                 const displayLabel = isMatch ? result.label : 'SEARCHING...';
 
-                // Reactive Color
                 const isUnknown = result.label === 'unknown';
                 const statusColor = isMatch ? '#22c55e' : (isUnknown ? '#ef4444' : '#00f2ff');
 
-                // Smoothing Logic
+                let drawBox = box;
                 if (isMatch) {
                     if (!smoothBoxes[displayLabel]) {
                         smoothBoxes[displayLabel] = { x: box.x, y: box.y, w: box.width, h: box.height };
@@ -1517,19 +1513,11 @@ video.addEventListener('play', () => {
                         sb.w += (box.width - sb.w) * LERP_FACTOR;
                         sb.h += (box.height - sb.h) * LERP_FACTOR;
                     }
-                    const sb = smoothBoxes[displayLabel];
-
-                    // Draw Mesh
-                    if (detection.landmarks) drawFaceMesh(ctx, detection.landmarks, statusColor);
-
-                    // Draw Brackets & Status
-                    drawCustomFaceBox(ctx, { x: sb.x, y: sb.y, width: sb.w, height: sb.h }, displayLabel, isMatch, confidence, result.label);
-                } else {
-                    // Draw Mesh
-                    if (detection.landmarks) drawFaceMesh(ctx, detection.landmarks, statusColor);
-
-                    drawCustomFaceBox(ctx, box, displayLabel, isMatch, confidence, result.label);
+                    drawBox = smoothBoxes[displayLabel];
                 }
+
+                if (detection.landmarks) drawFaceMesh(ctx, detection.landmarks, statusColor);
+                drawCustomFaceBox(ctx, drawBox, displayLabel, isMatch, confidence, result.label);
             });
         }
 
