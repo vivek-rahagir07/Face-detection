@@ -2544,3 +2544,51 @@ button:active,
     .pricing-grid { flex-direction: column; }
     .pricing-card.highlighted { transform: none; margin: 10px 0; }
 }
+
+/* --- UPI Payment UI --- */
+.upi-pay-container {
+    animation: fadeInPortal 0.5s ease-out;
+}
+
+#upi-qr-wrapper {
+    transition: transform 0.3s ease;
+    border: 4px solid #fff;
+}
+
+#upi-qr-wrapper:hover {
+    transform: scale(1.02);
+}
+
+.upi-id-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.upi-id-box::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    animation: light-sweep 3s infinite;
+}
+
+#btn-copy-upi {
+    transition: transform 0.2s;
+}
+
+#btn-copy-upi:active {
+    transform: scale(1.2);
+}
+
+.premium-modal-content {
+    min-height: 450px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}

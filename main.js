@@ -2368,43 +2368,121 @@ function init3DFace(containerId) {
 
 // Premium Subscription Handlers
 const btnUpgrade = document.getElementById('btn-upgrade-premium');
-const btnClosePremium = document.getElementById('btn-close-premium');
 const premiumModal = document.getElementById('premium-modal');
 const successModal = document.getElementById('upgrade-success-modal');
-const btnSuccessClose = document.getElementById('btn-success-close');
 
-if (btnUpgrade) btnUpgrade.onclick = () => premiumModal.classList.remove('hidden');
-if (btnClosePremium) btnClosePremium.onclick = () => premiumModal.classList.add('hidden');
+const stepPlans = document.getElementById('premium-step-plans');
+const stepPay = document.getElementById('premium-step-pay');
+const btnClosePremium = document.getElementById('btn-close-premium');
+const btnClosePremium2 = document.getElementById('btn-close-premium-2');
+const btnBackPlans = document.getElementById('btn-back-plans');
+const btnVerifyPay = document.getElementById('btn-verify-payment');
+const btnSuccessClose = document.getElementById('btn-success-close');
+const upiQrContainer = document.getElementById('upi-qr-code');
+
+let selectedPlanData = null;
+
+if (btnUpgrade) btnUpgrade.onclick = () => {
+    premiumModal.classList.remove('hidden');
+    stepPlans.classList.remove('hidden');
+    stepPay.classList.add('hidden');
+};
+
+const closePremium = () => premiumModal.classList.add('hidden');
+if (btnClosePremium) btnClosePremium.onclick = closePremium;
+if (btnClosePremium2) btnClosePremium2.onclick = closePremium;
+
+if (btnBackPlans) btnBackPlans.onclick = () => {
+    stepPay.classList.add('hidden');
+    stepPlans.classList.remove('hidden');
+};
+
 if (btnSuccessClose) btnSuccessClose.onclick = () => {
     successModal.classList.add('hidden');
     setMode('analytics');
 };
 
 document.querySelectorAll('.btn-select-plan').forEach(btn => {
-    btn.onclick = async () => {
-        if (!currentSpace) return;
-        const plan = btn.parentElement.dataset.plan;
+    btn.onclick = () => {
+        const card = btn.parentElement;
+        selectedPlanData = {
+            plan: card.dataset.plan,
+            amt: card.dataset.amt
+        };
 
-        btn.innerText = "Processing...";
-        btn.disabled = true;
+        const planNameEl = document.getElementById('selected-plan-name');
+        if (planNameEl) planNameEl.innerText = selectedPlanData.plan.toUpperCase();
+
+        stepPlans.classList.add('hidden');
+        stepPay.classList.remove('hidden');
+
+        // Generate UPI QR
+        generateUpiQR(selectedPlanData.amt);
+    };
+});
+
+function generateUpiQR(amount) {
+    if (!upiQrContainer) return;
+    upiQrContainer.innerHTML = 'Loading QR...';
+
+    const upiId = "9996445592@ibl";
+    const upiUrl = `upi://pay?pa=${upiId}&pn=CognitoAttend&cu=INR&am=${amount}`;
+
+    const qrEngine = window.QRCode || (typeof QRCode !== 'undefined' ? QRCode : null);
+    if (qrEngine && qrEngine.toDataURL) {
+        qrEngine.toDataURL(upiUrl, {
+            width: 200,
+            margin: 0,
+            errorCorrectionLevel: 'H'
+        }, (err, url) => {
+            if (err) {
+                upiQrContainer.innerHTML = 'QR Error';
+                return;
+            }
+            upiQrContainer.innerHTML = `<img src="${url}" style="width:100%; height:auto;">`;
+        });
+    } else {
+        const qrApi = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUrl)}`;
+        upiQrContainer.innerHTML = `<img src="${qrApi}" style="width:100%; height:auto;">`;
+    }
+}
+
+if (btnVerifyPay) {
+    btnVerifyPay.onclick = async () => {
+        if (!currentSpace || !selectedPlanData) return;
+
+        btnVerifyPay.innerText = "Verifying Transaction...";
+        btnVerifyPay.disabled = true;
 
         try {
+            // Simulated transaction verification delay
+            await new Promise(r => setTimeout(r, 2000));
+
             await updateDoc(doc(db, COLL_SPACES, currentSpace.id), {
                 premium: true,
-                subscriptionPlan: plan,
-                subscriptionDate: new Date().toISOString()
+                subscriptionPlan: selectedPlanData.plan,
+                subscriptionAmount: selectedPlanData.amt,
+                subscriptionDate: new Date().toISOString(),
+                upiRef: "UPI_" + Math.random().toString(36).substring(2, 10).toUpperCase()
             });
 
             currentSpace.premium = true;
             updatePremiumUI(true);
             premiumModal.classList.add('hidden');
             successModal.classList.remove('hidden');
-            showToast("Premium features unlocked successfully!");
+            showToast("UPI Payment Verified! Premium Unlocked.");
         } catch (e) {
-            showToast("Upgrade failed: " + e.message, "error");
-        } finally {
-            btn.innerText = `Select ${plan.charAt(0).toUpperCase() + plan.slice(1)}`;
-            btn.disabled = false;
+            showToast("Verification failed: " + e.message, "error");
+            btnVerifyPay.innerText = "Verify & Activate Premium";
+            btnVerifyPay.disabled = false;
         }
     };
-});
+}
+
+const btnCopyUpi = document.getElementById('btn-copy-upi');
+if (btnCopyUpi) {
+    btnCopyUpi.onclick = () => {
+        navigator.clipboard.writeText("9996445592@ibl");
+        showToast("UPI ID Copied!");
+    };
+}
