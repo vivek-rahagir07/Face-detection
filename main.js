@@ -350,10 +350,9 @@ function updatePremiumUI(isPremium) {
         btn.style.display = isPremium ? 'none' : 'flex';
     });
 
-    const dashboard = document.querySelector('.premium-dashboard');
-    if (dashboard) {
-        dashboard.style.display = isPremium ? 'block' : 'none';
-    }
+    document.querySelectorAll('.premium-dashboard').forEach(el => {
+        el.style.display = isPremium ? 'block' : 'none';
+    });
 
     if (isPremium) {
         document.querySelectorAll('.premium-badge-v2').forEach(b => b.innerText = 'ACTIVE');
@@ -363,6 +362,8 @@ function updatePremiumUI(isPremium) {
 }
 
 // QR Logic
+let qrRefreshInterval = 30; // Seconds
+
 async function startQRRotation() {
     if (!currentSpace) return;
     stopQRRotation();
@@ -396,7 +397,7 @@ async function startQRRotation() {
                         qrImage.src = url;
                         qrImage.style.opacity = "1";
                         qrStatus.innerHTML = "[PRO] Code is live. Scan now.";
-                        resetTimer(30);
+                        resetTimer(qrRefreshInterval);
                     });
                 } else {
                     console.warn("QRCode library not found, using API fallback");
@@ -405,7 +406,7 @@ async function startQRRotation() {
                     qrImage.onload = () => {
                         qrImage.style.opacity = "1";
                         qrStatus.innerHTML = "[PRO] Live (API Fallback)";
-                        resetTimer(30);
+                        resetTimer(qrRefreshInterval);
                     };
                 }
             };
@@ -424,7 +425,7 @@ async function startQRRotation() {
     };
 
     await refreshQR();
-    qrInterval = setInterval(refreshQR, 30000);
+    qrInterval = setInterval(refreshQR, qrRefreshInterval * 1000);
 }
 
 function stopQRRotation() {
@@ -2487,5 +2488,44 @@ if (btnCopyUpi) {
     btnCopyUpi.onclick = () => {
         navigator.clipboard.writeText("9996445592@ibl");
         showToast("UPI ID Copied!");
+    };
+}
+
+// --- QR Timer Settings Handlers ---
+document.querySelectorAll('.btn-timer-opt').forEach(btn => {
+    btn.onclick = () => {
+        if (btn.id === 'btn-timer-custom-trigger') {
+            document.querySelectorAll('.btn-timer-opt').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('custom-timer-controls').classList.remove('hidden');
+            return;
+        }
+
+        document.getElementById('custom-timer-controls').classList.add('hidden');
+        document.querySelectorAll('.btn-timer-opt').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const sec = parseInt(btn.dataset.sec);
+        if (sec && !isNaN(sec)) {
+            qrRefreshInterval = sec;
+            showToast(`Rotation timer set to ${sec}s`);
+            startQRRotation(); // Restart with new timer
+        }
+    };
+});
+
+const btnApplyCustomTimer = document.getElementById('btn-apply-custom-timer');
+if (btnApplyCustomTimer) {
+    btnApplyCustomTimer.onclick = () => {
+        const input = document.getElementById('input-custom-sec');
+        const sec = parseInt(input.value);
+
+        if (sec && sec >= 10) {
+            qrRefreshInterval = sec;
+            showToast(`Custom timer set to ${sec}s`);
+            startQRRotation();
+        } else {
+            showToast("Minimum 10 seconds required", "error");
+        }
     };
 }
