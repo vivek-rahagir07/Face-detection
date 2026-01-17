@@ -2422,13 +2422,39 @@ button:active,
     font-weight: 800;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+        /* 2 per row on tablets */
+    }
+}
+
+@media (max-width: 600px) {
+    .premium-dashboard {
+        padding: 15px;
+        margin-top: 10px;
+    }
+
     .kpi-grid {
         grid-template-columns: 1fr;
+        /* Stack vertically on phones */
+        gap: 12px;
+    }
+
+    .kpi-card {
+        padding: 15px;
     }
 
     .charts-grid {
         grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chart-container-wrapper {
+        min-height: 250px;
+        /* Ensure height for charts */
+        padding: 15px;
     }
 
     .chart-container-wrapper.main-chart {
@@ -2436,6 +2462,16 @@ button:active,
         grid-row: auto;
     }
 }
+
+/* Ensure Chart Containers have size */
+.chart-container-wrapper {
+    position: relative;
+    height: 100%;
+    min-height: 300px;
+    width: 100%;
+}
+
+
 
 /* --- Premium Subscription System --- */
 .btn-upgrade-anim {
