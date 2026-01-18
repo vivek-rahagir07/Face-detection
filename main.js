@@ -1112,12 +1112,15 @@ function startDbListener() {
 
             if (data.lastAttendance === todayStr) {
                 const itemHTML = `
-                    <div class="list-item list-item-new">
+                    <div class="list-item list-item-new" data-uid="${uid}" data-name="${data.name}">
                         <div>
                             <strong>${data.name}</strong>
                             <span class="badge-course">${data.course || data.regNo || ''}</span>
                         </div>
-                        <div style="color:var(--success)">✔</div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <div style="color:var(--success)">✔</div>
+                            <button class="btn-undo-attendance" title="Undo Attendance" style="padding: 2px 6px; font-size: 0.6rem; background: rgba(255, 71, 87, 0.2); color: var(--danger); border: 1px solid var(--danger); border-radius: 4px; cursor: pointer;">Undo</button>
+                        </div>
                     </div>
                 `;
                 presentTodayCount++;
@@ -1156,13 +1159,22 @@ function startDbListener() {
     // Add event delegation for manual marking
     if (!todayListContainer._listenerAdded) {
         todayListContainer.addEventListener('click', (e) => {
-            const btn = e.target.closest('.btn-mark-present');
-            if (btn) {
-                const item = btn.closest('.list-item');
+            const btnMark = e.target.closest('.btn-mark-present');
+            const btnUndo = e.target.closest('.btn-undo-attendance');
+
+            if (btnMark) {
+                const item = btnMark.closest('.list-item');
                 const uid = item.dataset.uid;
                 const name = item.dataset.name;
                 if (uid && name) {
                     markAttendance(name);
+                }
+            } else if (btnUndo) {
+                const item = btnUndo.closest('.list-item');
+                const uid = item.dataset.uid;
+                const name = item.dataset.name;
+                if (uid && name) {
+                    unmarkAttendance(uid, name);
                 }
             }
         });
@@ -1901,6 +1913,48 @@ async function markAttendance(name) {
     } catch (err) {
         console.error("Attendance Update Error:", err);
     }
+}
+
+async function unmarkAttendance(uid, name) {
+    if (!currentSpace) return;
+
+    showConfirm(`Remove attendance for ${name}?`, async () => {
+        try {
+            const userDocRef = doc(db, COLL_USERS, uid);
+            const todayDate = new Date().toDateString();
+
+            // Revert user status
+            await updateDoc(userDocRef, {
+                lastAttendance: "removed", // or null, using "removed" to distinguish from never attended
+                attendanceCount: increment(-1)
+            });
+
+            // Remove from History Collection for today
+            const dateId = new Date().toISOString().split('T')[0];
+            const q = query(
+                collection(db, COLL_ATTENDANCE),
+                where("spaceId", "==", currentSpace.id),
+                where("userId", "==", uid),
+                where("date", "==", dateId)
+            );
+
+            const querySnapshot = await getDocs(q);
+            const deletePromises = [];
+            querySnapshot.forEach((doc) => {
+                deletePromises.push(deleteDoc(doc.ref));
+            });
+            await Promise.all(deletePromises);
+
+            showToast(`Attendance removed for ${name}`);
+
+            // Clean up cooldown so they can be marked again immediately if needed
+            delete attendanceCooldowns[name];
+
+        } catch (err) {
+            console.error("Unmark Attendance Error:", err);
+            showToast("Failed to remove attendance", "error");
+        }
+    });
 }
 
 // Geofencing
