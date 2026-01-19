@@ -1494,14 +1494,18 @@ function drawCustomFaceBox(ctx, box, label, isMatch, confidence, resultLabel) {
         const pillX = x + (width / 2) - (pillWidth / 2);
         const pillY = y - padding - pillHeight - 5;
 
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = color;
-        ctx.fillStyle = color;
+        // Dark Green for matches, original color (red) for unknown
+        const bgColor = isMatch ? '#064e3b' : color;
+        const textColor = isMatch ? '#fff' : '#000';
+
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = bgColor;
+        ctx.fillStyle = bgColor;
         ctx.beginPath();
         ctx.roundRect(pillX, pillY, pillWidth, pillHeight, 13);
         ctx.fill();
         ctx.shadowBlur = 0;
-        ctx.fillStyle = '#000';
+        ctx.fillStyle = textColor;
         ctx.fillText(statusText, pillX + 15, pillY + 18);
     }
 }
@@ -1636,13 +1640,7 @@ video.addEventListener('play', () => {
                 window.lastResults = results;
 
                 if (scanIndicator) {
-                    const bestResult = results.find(r => r.label !== 'unknown');
-                    if (bestResult) {
-                        const conf = Math.round((1 - bestResult.distance) * 100);
-                        scanIndicator.innerHTML = `🛰️ SCANNING: ${bestResult.label.toUpperCase()} [${conf}%]`;
-                    } else {
-                        scanIndicator.innerHTML = `🛰️ SCANNING`;
-                    }
+                    scanIndicator.innerHTML = `🛰️ SCANNING`;
                     scanIndicator.style.display = 'block';
                 }
 
