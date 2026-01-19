@@ -210,6 +210,11 @@
                 content: '.';
             }
 
+            0%,
+            20% {
+                content: '.';
+            }
+
             40% {
                 content: '..';
             }
@@ -247,22 +252,19 @@
             border-color: var(--accent);
         }
 
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
 
-        @keyframes blink {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.3;
-            }
+        select {
+            width: 100%;
+            background: #111;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 16px 20px;
+            border-radius: 16px;
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s;
+            appearance: none;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -277,17 +279,18 @@
         <p>Dynamic QR Presence System</p>
 
         <div id="form-view">
-            <div class="input-group">
-                <label for="name">Your Name</label>
-                <input type="text" id="name" placeholder="Enter your full name" autocomplete="off">
-            </div>
-            <div class="input-group">
-                <label for="gender">Gender</label>
-                <select id="gender"
-                    style="width: 100%; background: #111; border: 1px solid rgba(255, 255, 255, 0.1); padding: 16px 20px; border-radius: 16px; color: #fff; font-size: 1rem; outline: none; transition: all 0.3s; appearance: none; cursor: pointer;">
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                </select>
+            <div id="dynamic-fields-container">
+                <div class="input-group">
+                    <label for="name">Your Name</label>
+                    <input type="text" id="name" placeholder="Enter your full name" autocomplete="off">
+                </div>
+                <div class="input-group">
+                    <label for="gender">Gender</label>
+                    <select id="gender">
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                    </select>
+                </div>
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
@@ -340,40 +343,78 @@
         const nonce = params.get('n');
 
         const btnSubmit = document.getElementById('btn-submit');
-        const inputName = document.getElementById('name');
         const statusDiv = document.getElementById('status');
         const formView = document.getElementById('form-view');
         const successView = document.getElementById('success-view');
-        const inputGender = document.getElementById('gender');
+        const dynamicFieldsContainer = document.getElementById('dynamic-fields-container');
         const video = document.getElementById('video');
         const canvas = document.getElementById('overlay');
         const loadingOverlay = document.getElementById('loading-overlay');
-        const btnGallery = document.getElementById('btn-gallery');
-        const inputGallery = document.getElementById('input-gallery');
+        const loadingText = document.getElementById('loading-text');
 
-        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
-
-        let faceMatcher = null;
-        let lastDetections = [];
         let isReady = false;
+        let currentSpaceData = null;
 
         async function initSystem() {
             try {
-                // Simplified: No face-api models or camera needed for this flow
-                isReady = true;
-
-                if (spaceId) {
-                    // Pre-fetch some space data if needed, but we don't need labeled descriptors anymore
-                    // We can check if space exists here
-                    const spaceSnap = await getDoc(doc(db, 'spaces', spaceId));
-                    if (!spaceSnap.exists()) {
-                        showStatus("Error: Workspace not found.", "error");
-                    }
+                if (!spaceId) {
+                    showStatus("Error: Workspace ID missing.", "error");
+                    return;
                 }
+
+                showStatus("Loading workspace config...", "");
+                const spaceSnap = await getDoc(doc(db, 'spaces', spaceId));
+                if (!spaceSnap.exists()) {
+                    showStatus("Error: Workspace not found.", "error");
+                    return;
+                }
+
+                currentSpaceData = spaceSnap.data();
+                updateFormFields(currentSpaceData.config);
+
+                isReady = true;
+                showStatus("Ready to submit.", "success");
             } catch (err) {
                 console.error(err);
                 showStatus("Initialization error: " + err.message, "error");
             }
+        }
+
+        function updateFormFields(config = {}) {
+            dynamicFieldsContainer.innerHTML = '';
+
+            // Always Name
+            addField('name', 'Your Name', 'text', 'Enter your full name');
+
+            // Configurable fields
+            if (config.regNo) addField('regNo', 'Registration Number', 'text', 'Enter registration number');
+            if (config.course) addField('course', 'Course / Department', 'text', 'Enter course or department');
+            if (config.email) addField('email', 'Email ID', 'email', 'Enter email address');
+            if (config.phone) addField('phone', 'Phone Number', 'text', 'Enter phone number');
+            if (config.bloodGroup) addField('bloodGroup', 'Blood Group', 'text', 'Enter blood group');
+            if (config.weight) addField('weight', 'Weight (kg)', 'text', 'Enter weight');
+
+            // Always Gender for voice customization
+            const genderGroup = document.createElement('div');
+            genderGroup.className = 'input-group';
+            genderGroup.innerHTML = `
+                <label for="gender">Gender</label>
+                <select id="gender">
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                </select>
+            `;
+            dynamicFieldsContainer.appendChild(genderGroup);
+        }
+
+        function addField(id, label, type, placeholder) {
+            const group = document.createElement('div');
+            group.className = 'input-group';
+            group.innerHTML = `
+                <label for="${id}">${label}</label>
+                <input type="${type}" id="${id}" placeholder="${placeholder}" autocomplete="off">
+            `;
+            dynamicFieldsContainer.appendChild(group);
         }
 
 
@@ -422,7 +463,11 @@
         }
 
         async function markPresence() {
-            const name = inputName.value.trim();
+            if (!isReady) return;
+
+            const nameInput = document.getElementById('name');
+            const name = nameInput ? nameInput.value.trim() : '';
+
             if (!name) return showStatus("Please enter your name.", "error");
             if (!spaceId || !nonce) return showStatus("Invalid QR code.", "error");
 
@@ -438,10 +483,7 @@
                 const spaceData = spaceSnap.data();
                 if (spaceData.qrNonce !== nonce) throw new Error("QR code expired. Please scan again.");
 
-                // Increment QR Scan Count
-                await updateDoc(spaceRef, { qrScanCount: increment(1) });
-
-
+                // Check Geofencing
                 if (spaceData.geofencing && spaceData.geofencing.enabled && spaceData.geofencing.center) {
                     showStatus("Checking location...", "");
                     const pos = await new Promise((resolve, reject) => {
@@ -460,8 +502,20 @@
                     }
                 }
 
-                // 2. Find or Create User Record
-                const gender = inputGender.value;
+                // Increment QR Scan Count
+                await updateDoc(spaceRef, { qrScanCount: increment(1) });
+
+                // 2. Collect all form data
+                const config = spaceData.config || {};
+                const gender = document.getElementById('gender').value;
+                const regNo = config.regNo ? document.getElementById('regNo').value.trim() : '';
+                const course = config.course ? document.getElementById('course').value.trim() : '';
+                const email = config.email ? document.getElementById('email').value.trim() : '';
+                const phone = config.phone ? document.getElementById('phone').value.trim() : '';
+                const bloodGroup = config.bloodGroup ? document.getElementById('bloodGroup').value.trim() : '';
+                const weight = config.weight ? document.getElementById('weight').value.trim() : '';
+
+                // 3. Find or Create User Record
                 const q = query(collection(db, 'users'), where("spaceId", "==", spaceId), where("name", "==", name));
                 const userSnap = await getDocs(q);
                 const todayStr = new Date().toDateString();
@@ -479,10 +533,16 @@
                     await updateDoc(doc(db, 'users', userDoc.id), {
                         lastAttendance: todayStr,
                         attendanceCount: increment(1),
-                        gender: gender
+                        gender: gender,
+                        regNo: regNo || userData.regNo || '',
+                        course: course || userData.course || '',
+                        email: email || userData.email || '',
+                        phone: phone || userData.phone || '',
+                        bloodGroup: bloodGroup || userData.bloodGroup || '',
+                        weight: weight || userData.weight || ''
                     });
 
-                    await recordAttendanceHistory(userDoc.id, name, userData.regNo || '', userData.course || '', gender);
+                    await recordAttendanceHistory(userDoc.id, name, regNo || userData.regNo || '', course || userData.course || '', gender);
                 } else {
                     const newUserDoc = await addDoc(collection(db, 'users'), {
                         name: name,
@@ -490,12 +550,18 @@
                         lastAttendance: todayStr,
                         attendanceCount: 1,
                         gender: gender,
-                        descriptor: null, // No descriptor as photo is skipped
+                        regNo: regNo,
+                        course: course,
+                        email: email,
+                        phone: phone,
+                        bloodGroup: bloodGroup,
+                        weight: weight,
+                        descriptor: null,
                         createdAt: new Date().toISOString(),
                         type: 'qr-manual'
                     });
 
-                    await recordAttendanceHistory(newUserDoc.id, name, '', '', gender);
+                    await recordAttendanceHistory(newUserDoc.id, name, regNo, course, gender);
                 }
 
                 finishSubmit(name, gender, spaceData);
@@ -538,7 +604,9 @@
 
 
         btnSubmit.addEventListener('click', () => markPresence());
-        inputName.addEventListener('keypress', (e) => { if (e.key === 'Enter') markPresence(); });
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') markPresence();
+        });
 
         initSystem();
     </script>

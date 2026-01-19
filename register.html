@@ -440,7 +440,7 @@
                 }
                 workspaceConfig = spaceSnap.data();
                 document.getElementById('space-name-display').innerText = workspaceConfig.name || "Workspace";
-                setupDynamicFields(workspaceConfig.config?.fields || ['regNo', 'course']);
+                setupDynamicFields(workspaceConfig.config || {});
 
                 // 2. Load Models
                 await Promise.all([
@@ -452,6 +452,7 @@
                 // 3. Start Camera
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
                 video.srcObject = stream;
+                await video.play();
 
                 video.onloadedmetadata = () => {
                     canvas.width = video.videoWidth;
@@ -474,19 +475,25 @@
             }
         }
 
-        function setupDynamicFields(fieldNamesArray) {
+        function setupDynamicFields(config) {
             const fieldLabels = {
                 regNo: 'Registration Number',
                 course: 'Course / Department',
                 email: 'Email ID',
-                phone: 'Phone Number'
+                phone: 'Phone Number',
+                bloodGroup: 'Blood Group',
+                weight: 'Weight (kg)'
             };
             dynamicFields.innerHTML = '';
-            fieldNamesArray.forEach(f => {
-                const group = document.createElement('div');
-                group.className = 'input-group';
-                group.innerHTML = `<label>${fieldLabels[f] || f}</label><input type="text" id="reg-${f}" placeholder="Enter ${fieldLabels[f] || f}">`;
-                dynamicFields.appendChild(group);
+
+            // Iterate over config keys
+            Object.keys(config).forEach(f => {
+                if (config[f] && fieldLabels[f]) {
+                    const group = document.createElement('div');
+                    group.className = 'input-group';
+                    group.innerHTML = `<label>${fieldLabels[f]}</label><input type="text" id="reg-${f}" placeholder="Enter ${fieldLabels[f]}">`;
+                    dynamicFields.appendChild(group);
+                }
             });
         }
 
@@ -610,12 +617,13 @@
             if (!snap.empty) throw new Error("This name is already registered in this workspace.");
 
             const metadata = { gender: document.getElementById('gender').value };
-            if (workspaceConfig.config?.fields) {
-                workspaceConfig.config.fields.forEach(f => {
+            const config = workspaceConfig.config || {};
+            Object.keys(config).forEach(f => {
+                if (config[f]) {
                     const el = document.getElementById(`reg-${f}`);
                     if (el) metadata[f] = el.value.trim();
-                });
-            }
+                }
+            });
 
             await addDoc(collection(db, 'users'), {
                 spaceId: spaceId,
