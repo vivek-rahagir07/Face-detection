@@ -2081,44 +2081,109 @@ function addLiveLogEntry(name, time) {
     }
 }
 
-function exportToExcel() {
+async function exportToExcel() {
     if (allUsersData.length === 0) {
         alert("No data available for this workspace.");
         return;
     }
 
-    const headers = ["Name", "Reg No", "Course", "Phone", "Total Attendance", "Last Seen"];
-    const rows = allUsersData.map(u => [
-        u.name || 'Unknown',
-        u.regNo || 'N/A',
-        u.course || 'N/A',
-        u.phone || 'N/A',
-        u.attendanceCount || 0,
-        u.lastAttendance || 'Never'
-    ]);
+    try {
+        showToast("Generating report...", "info");
 
-    let html = `
-        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-        <head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Attendance</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
-        <body>
-            <table border="1">
-                <thead>
-                    <tr>${headers.map(h => `<th style="background-color: #00f2ff; color: black; font-weight: bold;">${h}</th>`).join('')}</tr>
-                </thead>
-                <tbody>
-                    ${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}
-                </tbody>
-            </table>
-        </body>
-        </html>
-    `;
+        // 1. Fetch all attendance records for this space
+        const attendQuery = query(
+            collection(db, COLL_ATTENDANCE),
+            where("spaceId", "==", currentSpace.id)
+        );
+        const attendSnap = await getDocs(attendQuery);
 
-    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `attendance_${currentSpace.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xls`;
-    link.click();
+        // 2. Map data: userId -> date -> time (HH:MM:SS AM/PM)
+        const attendanceMap = {};
+        const uniqueDates = new Set();
+
+        attendSnap.forEach(snap => {
+            const data = snap.data();
+            if (!attendanceMap[data.userId]) attendanceMap[data.userId] = {};
+
+            const timeStr = data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'P';
+
+            // Only keep the first sighting of the day if there are multiples
+            if (!attendanceMap[data.userId][data.date]) {
+                attendanceMap[data.userId][data.date] = `P (${timeStr})`;
+            }
+            uniqueDates.add(data.date);
+        });
+
+        const sortedDates = Array.from(uniqueDates).sort();
+
+        // 3. Build Headers
+        const headers = ["Name", "Reg No", "Course", "Phone", "Total Records", ...sortedDates];
+
+        // 4. Build Rows
+        const rows = allUsersData.map(user => {
+            const userRow = [
+                user.name || 'Unknown',
+                user.regNo || 'N/A',
+                user.course || 'N/A',
+                user.phone || 'N/A',
+                user.attendanceCount || 0
+            ];
+
+            // Add "P (time)" or nothing for each date
+            sortedDates.forEach(date => {
+                userRow.push(attendanceMap[user.id]?.[date] || '-');
+            });
+
+            return userRow;
+        });
+
+        // 5. Generate Styled HTML for Excel
+        let html = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+            <head>
+                <meta charset="UTF-8">
+                <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Attendance Matrix</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+                <style>
+                    th { background-color: #00f2ff; color: #000; font-weight: bold; border: 1pt solid #000; }
+                    td { border: 0.5pt solid #ccc; text-align: center; }
+                    .header-cell { background-color: #111; color: #fff; }
+                </style>
+            </head>
+            <body>
+                <table border="1">
+                    <thead>
+                        <tr>
+                            ${headers.map(h => `<th style="background-color: #00f2ff; color: black; padding: 10px;">${h}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map(r => `
+                            <tr>
+                                ${r.map((c, idx) => {
+            const isPresent = c.startsWith('P (');
+            const style = isPresent ? 'background-color: #dcfce7; color: #166534; font-weight: bold;' : '';
+            return `<td style="${style} padding: 8px;">${c}</td>`;
+        }).join('')}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </body>
+            </html>
+        `;
+
+        const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `attendance_matrix_${currentSpace.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xls`;
+        link.click();
+
+        showToast("Excel Exported!");
+    } catch (err) {
+        console.error("Export Error:", err);
+        alert("Failed to export: " + err.message);
+    }
 }
 
 setMode('attendance');
