@@ -1863,8 +1863,15 @@ async function markAttendance(name) {
         if (!userSnap.exists()) return;
         const userData = userSnap.data();
 
-        // If already attended today, silently return (no locking out)
-        if (userData.lastAttendance === todayDate) return;
+        // 1. Always log sightings (Live Activity)
+        const timeStr = new Date().toLocaleTimeString();
+        addLiveLogEntry(name, timeStr);
+
+        // 2. ONLY mark attendance if not already marked today
+        if (userData.lastAttendance === todayDate) {
+            // Silently return for DB update, but we still log the sighting above
+            return;
+        }
 
         // Perform the update first to ensure data integrity
         await updateDoc(userDocRef, {
@@ -1879,8 +1886,7 @@ async function markAttendance(name) {
         CyberAudio.playMatch();
         showToast(`Attendance marked: ${name}`);
 
-        const timeStr = new Date().toLocaleTimeString();
-        addLiveLogEntry(name, timeStr);
+        // Live log already added above
 
         const nowSpoken = Date.now();
         const lastTimeSpoken = lastSpoken[name] || 0;
@@ -1994,7 +2000,7 @@ if (btnCapture) btnCapture.addEventListener('click', handleCameraRegistration);
 if (btnUploadTrigger) btnUploadTrigger.addEventListener('click', () => inputUploadPhoto.click());
 if (inputUploadPhoto) inputUploadPhoto.addEventListener('change', handlePhotoUpload);
 
-if (btnExport) btnExport.addEventListener('click', exportToCSV);
+if (btnExport) btnExport.addEventListener('click', exportToExcel);
 
 // Magic Link Event Listeners
 const btnGenerateMagic = document.getElementById('btn-generate-magic');
@@ -2077,7 +2083,7 @@ function addLiveLogEntry(name, time) {
     }
 }
 
-function exportToCSV() {
+function exportToExcel() {
     if (allUsersData.length === 0) {
         alert("No data available for this workspace.");
         return;
@@ -2085,20 +2091,35 @@ function exportToCSV() {
 
     const headers = ["Name", "Reg No", "Course", "Phone", "Total Attendance", "Last Seen"];
     const rows = allUsersData.map(u => [
-        `"${u.name || 'Unknown'}"`,
-        `"${u.regNo || 'N/A'}"`,
-        `"${u.course || 'N/A'}"`,
-        `"${u.phone || 'N/A'}"`,
+        u.name || 'Unknown',
+        u.regNo || 'N/A',
+        u.course || 'N/A',
+        u.phone || 'N/A',
         u.attendanceCount || 0,
-        `"${u.lastAttendance || 'Never'}"`
+        u.lastAttendance || 'Never'
     ]);
 
-    const csvContent = headers.join(",") + "\n" + rows.map(r => r.join(",")).join("\n");
-    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    let html = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Attendance</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
+        <body>
+            <table border="1">
+                <thead>
+                    <tr>${headers.map(h => `<th style="background-color: #00f2ff; color: black; font-weight: bold;">${h}</th>`).join('')}</tr>
+                </thead>
+                <tbody>
+                    ${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}
+                </tbody>
+            </table>
+        </body>
+        </html>
+    `;
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `attendance_${currentSpace.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `attendance_${currentSpace.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xls`;
     link.click();
 }
 
