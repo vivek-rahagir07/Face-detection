@@ -162,7 +162,46 @@ const lastSpoken = {};
 
 // Device Detection for Performance
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-const DETECTION_INTERVAL = isMobile ? 250 : 100;
+let DETECTION_INTERVAL = isMobile ? 250 : 100;
+let DETECTOR_OPTIONS = isMobile ? new faceapi.TinyFaceDetectorOptions() : new faceapi.SsdMobilenetv1Options();
+
+// System Preferences
+let appSettings = {
+    performanceMode: 'balanced', // high, balanced, battery
+    voiceGender: 'male',
+    voiceEnabled: true,
+    hapticEnabled: true,
+    detectionThreshold: 0.6,
+    preferredCamera: 'user'
+};
+
+function loadSettings() {
+    const saved = localStorage.getItem('cognito_settings');
+    if (saved) {
+        appSettings = { ...appSettings, ...JSON.parse(saved) };
+        applySettings();
+    }
+}
+
+function saveSettings() {
+    localStorage.setItem('cognito_settings', JSON.stringify(appSettings));
+    applySettings();
+}
+
+function applySettings() {
+    document.body.classList.toggle('perf-battery', appSettings.performanceMode === 'battery');
+    if (appSettings.performanceMode === 'battery') {
+        DETECTION_INTERVAL = isMobile ? 1000 : 500;
+        DETECTOR_OPTIONS = new faceapi.TinyFaceDetectorOptions({ inputSize: 160 });
+    } else if (appSettings.performanceMode === 'high') {
+        DETECTION_INTERVAL = isMobile ? 150 : 60;
+        DETECTOR_OPTIONS = isMobile ? new faceapi.TinyFaceDetectorOptions({ inputSize: 320 }) : new faceapi.SsdMobilenetv1Options();
+    } else {
+        DETECTION_INTERVAL = isMobile ? 250 : 100;
+        DETECTOR_OPTIONS = isMobile ? new faceapi.TinyFaceDetectorOptions() : new faceapi.SsdMobilenetv1Options();
+    }
+}
+loadSettings();
 
 let hourlyChart = null;
 
@@ -587,6 +626,52 @@ if (btnCopyQrLink) {
     });
 }
 
+// Device Settings Listeners
+const perfModeSelect = document.getElementById('setting-perf-mode');
+const voiceGenderSelect = document.getElementById('setting-voice-gender');
+const hapticToggle = document.getElementById('setting-haptic-enabled');
+const btnSwitchCamera = document.getElementById('btn-switch-camera');
+
+if (perfModeSelect) {
+    perfModeSelect.addEventListener('change', (e) => {
+        appSettings.performanceMode = e.target.value;
+        saveSettings();
+    });
+}
+if (voiceGenderSelect) {
+    voiceGenderSelect.addEventListener('change', (e) => {
+        appSettings.voiceGender = e.target.value;
+        saveSettings();
+    });
+}
+if (hapticToggle) {
+    hapticToggle.addEventListener('change', (e) => {
+        appSettings.hapticEnabled = e.target.checked;
+        saveSettings();
+    });
+}
+if (btnSwitchCamera) {
+    btnSwitchCamera.addEventListener('click', () => {
+        appSettings.preferredCamera = appSettings.preferredCamera === 'user' ? 'environment' : 'user';
+        saveSettings();
+        startVideo(); // Restart video with new constraints
+    });
+}
+
+function updateSettingsUI() {
+    if (perfModeSelect) perfModeSelect.value = appSettings.performanceMode;
+    if (voiceGenderSelect) voiceGenderSelect.value = appSettings.voiceGender;
+    if (hapticToggle) hapticToggle.checked = appSettings.hapticEnabled;
+}
+
+// Override loadSettings to also update UI
+const originalLoadSettings = loadSettings;
+loadSettings = function () {
+    originalLoadSettings();
+    updateSettingsUI();
+};
+loadSettings();
+
 // Attendance Tab Switching
 if (tabPresent && tabAbsent) {
     tabPresent.addEventListener('click', () => {
@@ -841,7 +926,7 @@ function startVideo() {
             width: { ideal: 1280 },
             height: { ideal: 720 },
             aspectRatio: 1.777777778,
-            facingMode: "user"
+            facingMode: appSettings.preferredCamera || "user"
         }
     };
 
@@ -1622,7 +1707,7 @@ video.addEventListener('play', () => {
                 updateDisplaySize();
             }
 
-            const detections = await faceapi.detectAllFaces(video)
+            const detections = await faceapi.detectAllFaces(video, DETECTOR_OPTIONS)
                 .withFaceLandmarks()
                 .withFaceDescriptors();
 
@@ -1880,7 +1965,7 @@ async function markAttendance(name) {
         // ONLY AFTER SUCCESS: Mark cooldown and perform side effects
         attendanceCooldowns[name] = now;
 
-        if (navigator.vibrate) navigator.vibrate(100);
+        if (appSettings.hapticEnabled && navigator.vibrate) navigator.vibrate(100);
         CyberAudio.playMatch();
         showToast(`Attendance marked: ${name}`);
 
@@ -1890,7 +1975,7 @@ async function markAttendance(name) {
         const lastTimeSpoken = lastSpoken[name] || 0;
         // 2 second buffer for the same person to avoid accidental double-speak
         if (nowSpoken - lastTimeSpoken > 2000) {
-            const gender = userData.gender || 'male';
+            const gender = appSettings.voiceGender || userData.gender || 'male';
             speak(`${name} present`, gender);
             lastSpoken[name] = nowSpoken;
         }
