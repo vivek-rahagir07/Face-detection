@@ -1137,7 +1137,7 @@ function startDbListener() {
         allUsersData = tempAllData;
 
         if (labeledDescriptors.length > 0) {
-            faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.4);
+            faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6); // Increased to 0.6 for scanning
         }
 
         todayCountDisplay.innerText = presentTodayCount;
@@ -1635,12 +1635,21 @@ video.addEventListener('play', () => {
                 window.lastDetections = detections;
                 window.lastResults = results;
 
-                if (scanIndicator) scanIndicator.style.display = 'block';
+                if (scanIndicator) {
+                    const bestResult = results.find(r => r.label !== 'unknown');
+                    if (bestResult) {
+                        const conf = Math.round((1 - bestResult.distance) * 100);
+                        scanIndicator.innerHTML = `🛰️ SCANNING: ${bestResult.label.toUpperCase()} [${conf}%]`;
+                    } else {
+                        scanIndicator.innerHTML = `🛰️ SCANNING`;
+                    }
+                    scanIndicator.style.display = 'block';
+                }
 
                 detections.forEach((detection, i) => {
                     const result = results[i];
-                    const isMatch = result.label !== 'unknown' && result.distance <= 0.6;
-                    if (isMatch) {
+                    const isAttendanceMatch = result.label !== 'unknown' && result.distance <= 0.4;
+                    if (isAttendanceMatch) {
                         detectionHistory[result.label] = (detectionHistory[result.label] || 0) + 1;
                         if (detectionHistory[result.label] >= VALIDATION_THRESHOLD) {
                             markAttendance(result.label);
@@ -1695,14 +1704,15 @@ video.addEventListener('play', () => {
 
                 const box = detection.detection.box;
                 const confidence = Math.round((1 - result.distance) * 100);
-                const isMatch = result.label !== 'unknown' && result.distance <= 0.6;
-                const displayLabel = isMatch ? result.label : 'SEARCHING...';
+                const isAttendanceMatch = result.label !== 'unknown' && result.distance <= 0.4;
+                const isPotentialMatch = result.label !== 'unknown' && result.distance <= 0.6;
+                const displayLabel = isPotentialMatch ? result.label : 'SEARCHING...';
 
                 const isUnknown = result.label === 'unknown';
-                const statusColor = isMatch ? '#22c55e' : (isUnknown ? '#ef4444' : '#10b981');
+                const statusColor = isAttendanceMatch ? '#22c55e' : (isUnknown ? '#ef4444' : '#10b981');
 
                 let drawBox = box;
-                if (isMatch) {
+                if (isPotentialMatch) {
                     if (!smoothBoxes[displayLabel]) {
                         smoothBoxes[displayLabel] = { x: box.x, y: box.y, w: box.width, h: box.height };
                     } else {
@@ -1716,7 +1726,7 @@ video.addEventListener('play', () => {
                 }
 
                 if (detection.landmarks) drawFaceMesh(ctx, detection.landmarks, statusColor);
-                drawCustomFaceBox(ctx, drawBox, displayLabel, isMatch, confidence, result.label);
+                drawCustomFaceBox(ctx, drawBox, displayLabel, isPotentialMatch, confidence, result.label);
             });
         }
 
