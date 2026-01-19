@@ -360,7 +360,9 @@
         let timerInterval = null;
 
         // Model loading
+        // Model URLs with fallback
         const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+        const FALLBACK_MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/';
 
         function showError(title, message) {
             document.getElementById('form-view').style.display = 'none';
@@ -434,36 +436,59 @@
                 document.getElementById('space-name-display').innerText = workspaceConfig.name || "Workspace";
                 setupDynamicFields(workspaceConfig.config || {});
 
-                // 2. Load Models
-                await Promise.all([
-                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-                ]);
+                // 2. Start Camera and Load Models PARALLELLY
+                feedback.innerText = "Initializing Hardware & AI...";
 
-                // 3. Start Camera
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-                video.srcObject = stream;
-                await video.play();
+                const cameraPromise = (async () => {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                    video.srcObject = stream;
+                    await video.play();
+                    video.onloadedmetadata = () => {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                    };
+                    return true;
+                })();
 
-                video.onloadedmetadata = () => {
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    loadingOverlay.style.display = 'none';
-
-
-                    isReady = true;
-                    requestAnimationFrame(processFrame);
+                const loadModel = async (url) => {
+                    try {
+                        await Promise.all([
+                            faceapi.nets.tinyFaceDetector.loadFromUri(url),
+                            faceapi.nets.faceLandmark68Net.loadFromUri(url),
+                            faceapi.nets.faceRecognitionNet.loadFromUri(url)
+                        ]);
+                        return true;
+                    } catch (e) {
+                        return false;
+                    }
                 };
+
+                const modelsPromise = (async () => {
+                    let ok = await loadModel(MODEL_URL);
+                    if (!ok) ok = await loadModel(FALLBACK_MODEL_URL);
+                    if (!ok) throw new Error("Could not load AI models from any source.");
+                    return true;
+                })();
+
+                // Wait for camera first so user sees feed immediately
+                await cameraPromise;
+                loadingOverlay.style.display = 'none';
+                feedback.innerText = "Camera Ready. Waiting for AI...";
+
+                // Then wait for models
+                await modelsPromise;
 
                 await signInAnonymously(auth);
                 feedback.innerText = "Ready to scan face";
                 feedback.style.color = "#10b981";
+                isReady = true;
+                requestAnimationFrame(processFrame);
 
             } catch (err) {
                 console.error(err);
                 feedback.innerText = "Hardware error: " + err.message;
                 feedback.style.color = "#ef4444";
+                loadingOverlay.style.display = 'none';
             }
         }
 
@@ -492,7 +517,7 @@
         async function processFrame() {
             if (!isReady) return;
 
-            const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
             lastDetection = detection;
 
             const ctx = canvas.getContext('2d');
