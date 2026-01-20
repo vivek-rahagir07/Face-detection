@@ -2306,13 +2306,20 @@ function startSurveillanceMonitor() {
             else if (behavior === "DISTRACTED") icon = "🚩";
             else if (behavior === "ROTATING") icon = "⚠️";
 
+            const integrity = session.integrity || 100;
+            const integrityColor = integrity < 50 ? '#ef4444' : (integrity < 80 ? '#fbbf24' : 'var(--success)');
+
             card.innerHTML = `
-                <div style="font-size: 1rem; margin-bottom: 3px;">${icon}</div>
+                <div style="font-size: 1rem; margin-bottom: 2px;">${icon}</div>
                 <div style="font-size: 0.65rem; font-weight: bold; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${session.name}</div>
-                <div style="font-size: 0.55rem; color: ${isCritical ? '#ef4444' : (behavior === "ROTATING" ? '#fbbf24' : 'var(--success)')}; margin-top: 3px; font-weight:800; letter-spacing:1px;">
+                <div style="font-size: 0.5rem; color: ${isCritical ? '#ef4444' : (behavior === "ROTATING" ? '#fbbf24' : 'var(--success)')}; margin-top: 2px; font-weight:800; letter-spacing:0.5px;">
                     ${behavior}
                 </div>
-                <div style="position: absolute; bottom: 0; left: 0; height: 2px; background: var(--accent); width: 100%; opacity: 0.1;"></div>
+                <!-- Integrity Progress -->
+                <div style="width: 100%; height: 3px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-top: 5px; overflow: hidden;">
+                    <div style="width: ${integrity}%; height: 100%; background: ${integrityColor}; transition: width 0.3s;"></div>
+                </div>
+                <div style="position: absolute; bottom: 0; left: 0; height: 1px; background: var(--accent); width: 100%; opacity: 0.05;"></div>
             `;
             grid.appendChild(card);
         });
