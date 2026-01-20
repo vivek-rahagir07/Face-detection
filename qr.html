@@ -385,11 +385,26 @@
 
         let isReady = false;
         let currentSpaceData = null;
+        let deviceID = localStorage.getItem('cognito_device_id');
+        if (!deviceID) {
+            deviceID = 'dev_' + Math.random().toString(36).substring(2, 15);
+            localStorage.setItem('cognito_device_id', deviceID);
+        }
 
         async function initSystem() {
             try {
                 if (!spaceId) {
                     showStatus("Error: Workspace ID missing.", "error");
+                    return;
+                }
+
+                // Check if this specific QR (nonce) was already used on this device
+                const usedNonces = JSON.parse(localStorage.getItem(`used_nonces_${spaceId}`) || '[]');
+                if (usedNonces.includes(nonce)) {
+                    formView.style.display = 'none';
+                    successView.style.display = 'block';
+                    const successTitle = successView.querySelector('h2');
+                    if (successTitle) successTitle.innerText = "Already Marked!";
                     return;
                 }
 
@@ -730,6 +745,20 @@
             if (spaceData.config && spaceData.config.voiceEnabled) {
                 speak(`${name} present`, gender, true);
             }
+
+            // Save this nonce as used on this device
+            try {
+                const usedNonces = JSON.parse(localStorage.getItem(`used_nonces_${spaceId}`) || '[]');
+                if (!usedNonces.includes(nonce)) {
+                    usedNonces.push(nonce);
+                    // Keep only last 10 nonces to save space
+                    if (usedNonces.length > 10) usedNonces.shift();
+                    localStorage.setItem(`used_nonces_${spaceId}`, JSON.stringify(usedNonces));
+                }
+            } catch (e) {
+                console.error("Failed to save used nonce:", e);
+            }
+
             formView.style.display = 'none';
             successView.style.display = 'block';
         }
