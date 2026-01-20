@@ -160,6 +160,10 @@ let hudScanDir = 1;
 let hudRotation = 0; // Continuous rotation for rings
 const lastSpoken = {};
 
+let configLeafletMap = null;
+let configMarker = null;
+let configRadiusCircle = null;
+
 // Device Detection for Performance
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 let DETECTION_INTERVAL = isMobile ? 250 : 100;
@@ -1137,13 +1141,56 @@ function syncConfigToggles() {
     configGeoRadius.value = gf.radius || 100;
     if (gf.center) {
         geoStatus.innerText = `Lat: ${gf.center.lat.toFixed(6)}, Lng: ${gf.center.lng.toFixed(6)}`;
+        updateConfigMapPreview(gf.center.lat, gf.center.lng, gf.radius || 100);
     } else {
         geoStatus.innerText = "Location not set";
+        document.getElementById('config-map-container').style.display = 'none';
     }
 
     if (configQrRefresh) {
         configQrRefresh.value = config.qrRefreshInterval || "30000";
     }
+}
+
+function updateConfigMapPreview(lat, lng, radius, accuracy = null) {
+    const container = document.getElementById('config-map-container');
+    container.style.display = 'block';
+
+    if (!configLeafletMap) {
+        configLeafletMap = L.map('config-map', { zoomControl: false }).setView([lat, lng], 17);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 20
+        }).addTo(configLeafletMap);
+    } else {
+        configLeafletMap.setView([lat, lng]);
+    }
+
+    if (configMarker) configLeafletMap.removeLayer(configMarker);
+    if (configRadiusCircle) configLeafletMap.removeLayer(configRadiusCircle);
+
+    configMarker = L.circleMarker([lat, lng], {
+        radius: 6,
+        fillColor: "var(--accent)",
+        color: "#fff",
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 1
+    }).addTo(configLeafletMap);
+
+    configRadiusCircle = L.circle([lat, lng], {
+        radius: radius,
+        color: "var(--accent)",
+        fillColor: "var(--accent)",
+        fillOpacity: 0.1,
+        weight: 1,
+        dashArray: '5, 5'
+    }).addTo(configLeafletMap);
+
+    if (accuracy) {
+        geoStatus.innerHTML += `<br><span style="color:var(--accent)">Accuracy: ±${accuracy.toFixed(1)}m</span>`;
+    }
+
+    configLeafletMap.invalidateSize();
 }
 
 // Database Listener
@@ -2059,16 +2106,36 @@ if (btnSetLocation) {
 
         geoStatus.innerText = "Finding you...";
         navigator.geolocation.getCurrentPosition((pos) => {
-            const { latitude, longitude } = pos.coords;
+            const { latitude, longitude, accuracy } = pos.coords;
             btnSetLocation.dataset.lat = latitude;
             btnSetLocation.dataset.lng = longitude;
-            geoStatus.innerText = `Local Set: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+            geoStatus.innerText = `Lat: ${latitude.toFixed(6)}, Lng: ${longitude.toFixed(6)}`;
             geoStatus.style.color = "var(--success)";
+
+            const radius = parseFloat(configGeoRadius.value) || 100;
+            updateConfigMapPreview(latitude, longitude, radius, accuracy);
+
+            if (accuracy > 20) {
+                showToast("GPS signal weak. Try moving to a window for better 10m precision.", "error");
+            }
         }, (err) => {
             console.error("Geo Error:", err);
             geoStatus.innerText = "Error: Permission denied / signal weak.";
             geoStatus.style.color = "var(--danger)";
         }, { enableHighAccuracy: true });
+    });
+}
+
+if (configGeoRadius) {
+    configGeoRadius.addEventListener('input', () => {
+        const radius = parseFloat(configGeoRadius.value) || 100;
+        const locText = geoStatus.innerText;
+        if (locText.includes('Lat:') && configLeafletMap) {
+            const parts = locText.split(',');
+            const lat = parseFloat(parts[0].split(':')[1]);
+            const lng = parseFloat(parts[1].split(':')[1]);
+            updateConfigMapPreview(lat, lng, radius);
+        }
     });
 }
 

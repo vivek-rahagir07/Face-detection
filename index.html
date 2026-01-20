@@ -60,6 +60,10 @@
 
 
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script type="module" src="https://unpkg.com/@splinetool/viewer@1.12.34/build/spline-viewer.js"></script>
 
 
@@ -383,6 +387,12 @@
                             style="display: block; margin-top: 8px; font-size: 0.7rem; color: var(--text-muted);">Local:
                             Not
                             set</small>
+
+                        <!-- Map Preview for Setting Location -->
+                        <div id="config-map-container"
+                            style="width: 100%; height: 180px; border-radius: 12px; margin-top: 15px; border: 1px solid rgba(0, 242, 255, 0.2); overflow: hidden; display: none;">
+                            <div id="config-map" style="width: 100%; height: 100%;"></div>
+                        </div>
                     </div>
 
                     <h3 style="margin-top: 15px;">Auto-Onboarding</h3>
