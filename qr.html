@@ -358,6 +358,20 @@
                 opacity: 0;
             }
         }
+
+        @keyframes alertPulse {
+            0% {
+                opacity: 0.2;
+            }
+
+            50% {
+                opacity: 0.8;
+            }
+
+            100% {
+                opacity: 0.2;
+            }
+        }
     </style>
 </head>
 
@@ -368,7 +382,20 @@
             <img src="folder/cognito attend.png" alt="CognitoAttend Brand Logo" class="header-logo">
         </div>
         <h1>CognitoAttend</h1>
-        <p>Dynamic QR Presence System</p>
+        <p>Tactical Presence & Monitoring</p>
+
+        <div id="surveillance-container"
+            style="display: none; margin-bottom: 20px; position: relative; border-radius: 20px; overflow: hidden; border: 2px solid var(--accent); aspect-ratio: 4/3; background: #000;">
+            <video id="surveillance-video" autoplay muted playsinline
+                style="width: 100%; height: 100%; object-fit: cover;"></video>
+            <canvas id="surveillance-overlay" style="position: absolute; inset: 0; pointer-events: none;"></canvas>
+            <div id="pose-badge"
+                style="position: absolute; top: 10px; left: 10px; padding: 5px 12px; border-radius: 50px; background: rgba(0,0,0,0.8); color: var(--accent); font-size: 10px; font-weight: bold; border: 1px solid var(--accent); z-index: 10;">
+                SCANNING POSE...</div>
+            <div id="alert-overlay"
+                style="position: absolute; inset: 0; border: 4px solid #ef4444; pointer-events: none; display: none; animation: alertPulse 1s infinite; z-index: 5;">
+            </div>
+        </div>
 
         <div id="form-view">
             <div id="dynamic-fields-container">
@@ -450,12 +477,26 @@
         const formView = document.getElementById('form-view');
         const successView = document.getElementById('success-view');
         const dynamicFieldsContainer = document.getElementById('dynamic-fields-container');
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('overlay');
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const loadingText = document.getElementById('loading-text');
-
         const errorView = document.getElementById('error-view');
+
+        const surveillanceContainer = document.getElementById('surveillance-container');
+        const video = document.getElementById('surveillance-video');
+        const canvas = document.getElementById('surveillance-overlay');
+        const poseBadge = document.getElementById('pose-badge');
+        const alertOverlay = document.getElementById('alert-overlay');
+
+        let isReady = false;
+        let currentSpaceData = null;
+        let deviceID = localStorage.getItem('cognito_device_id');
+        if (!deviceID) {
+            deviceID = 'dev_' + Math.random().toString(36).substring(2, 15);
+            localStorage.setItem('cognito_device_id', deviceID);
+        }
+
+        let isSuspicious = false;
+        let suspiciousStartTime = null;
+        let surveillanceActive = false;
+        let sessionStartTime = Date.now();
 
         async function initSystem() {
             try {
@@ -489,10 +530,10 @@
 
                 currentSpaceData = spaceSnap.data();
 
-                // 3. Nonce Cloud Verification
-                if (currentSpaceData.qrNonce !== nonce) {
-                    showErrorScreen("Invalid Code", "This QR code is out of sync. Please scan the latest code displayed on the screen.");
-                    return;
+                // 4. Surveillance Check
+                if (currentSpaceData.config && currentSpaceData.config.examMode) {
+                    surveillanceContainer.style.display = 'block';
+                    await startSurveillance();
                 }
 
                 updateFormFields(currentSpaceData.config);
@@ -503,6 +544,104 @@
                 console.error(err);
                 showStatus("Initialization error: " + err.message, "error");
             }
+        }
+
+        async function startSurveillance() {
+            try {
+                showStatus("Initializing Proctoring AI...", "");
+                await faceapi.nets.tinyFaceDetector.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights');
+                await faceapi.nets.faceLandmark68TinyNet.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights');
+
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                video.srcObject = stream;
+                surveillanceActive = true;
+
+                detectPose();
+                startHeartbeat();
+            } catch (e) {
+                console.error("Surveillance Error:", e);
+                showStatus("Camera access required for proctoring.", "error");
+            }
+        }
+
+        let currentBehavior = "SECURE";
+
+        async function detectPose() {
+            if (!surveillanceActive) return;
+
+            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks(true);
+
+            if (detection) {
+                const landmarks = detection.landmarks.relativePositions;
+                const nose = landmarks[30];
+                const leftEye = landmarks[36];
+                const rightEye = landmarks[45];
+
+                // Simple Head Pose Estimation (Yaw/Tilt)
+                const eyeDist = rightEye.x - leftEye.x;
+                const noseOffset = nose.x - (leftEye.x + eyeDist / 2);
+                const yaw = (noseOffset / eyeDist) * 100;
+
+                if (Math.abs(yaw) > 35) {
+                    currentBehavior = "ROTATING";
+                    if (!suspiciousStartTime) suspiciousStartTime = Date.now();
+                } else {
+                    suspiciousStartTime = null;
+                }
+
+                // If suspicious for > 1.2 seconds
+                if (suspiciousStartTime && (Date.now() - suspiciousStartTime > 1200)) {
+                    isSuspicious = true;
+                    currentBehavior = "DISTRACTED";
+                    poseBadge.innerText = "🚨 SUSPICIOUS: " + currentBehavior;
+                    poseBadge.style.color = "#ff4444";
+                    poseBadge.style.borderColor = "#ff4444";
+                    alertOverlay.style.display = 'block';
+                } else if (Math.abs(yaw) > 30) {
+                    isSuspicious = false;
+                    poseBadge.innerText = "⚠️ STATUS: " + currentBehavior;
+                    poseBadge.style.color = "#fbbf24";
+                    poseBadge.style.borderColor = "#fbbf24";
+                    alertOverlay.style.display = 'none';
+                } else {
+                    isSuspicious = false;
+                    currentBehavior = "SECURE";
+                    poseBadge.innerText = "✔️ STATUS: " + currentBehavior;
+                    poseBadge.style.color = "var(--accent)";
+                    poseBadge.style.borderColor = "var(--accent)";
+                    alertOverlay.style.display = 'none';
+                }
+            } else {
+                isSuspicious = true;
+                currentBehavior = "OFF-SCREEN";
+                poseBadge.innerText = "🚫 WARNING: " + currentBehavior;
+                poseBadge.style.color = "#ff4444";
+                alertOverlay.style.display = 'block';
+            }
+
+            requestAnimationFrame(detectPose);
+        }
+
+        function startHeartbeat() {
+            const userName = document.getElementById('name');
+            setInterval(async () => {
+                if (!surveillanceActive || !currentUser) return;
+
+                const sessionId = `${spaceId}_${deviceID}`;
+                try {
+                    await updateDoc(doc(db, 'spaces', spaceId), {
+                        [`liveSessions.${deviceID}`]: {
+                            name: userName.value || "Anonymous Student",
+                            isSuspicious: isSuspicious,
+                            behavior: currentBehavior,
+                            lastSeen: new Date(),
+                            startTime: sessionStartTime
+                        }
+                    });
+                } catch (e) {
+                    console.error("Heartbeat fail:", e);
+                }
+            }, 3000);
         }
 
         function showErrorScreen(title, message) {

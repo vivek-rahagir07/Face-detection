@@ -241,6 +241,8 @@
                 QR Presence</button>
             <h2 id="current-space-title">Workspace Name</h2>
             <div style="display: flex; gap: 8px; align-items: center;" class="mobile-hidden">
+                <button id="btn-mode-surveillance" class="btn-secondary btn-sm" aria-label="Open Surveillance">🛰️
+                    Surveillance</button>
                 <button id="btn-history" class="btn-secondary btn-sm" aria-label="Open Attendance History">📜
                     History</button>
             </div>
@@ -257,6 +259,7 @@
                 <div class="sidebar-section">
                     <h4>Navigation</h4>
                     <button class="nav-item active" data-mode="attend">🕒 Attendance</button>
+                    <button class="nav-item" data-mode="surveillance">🛰️ Surveillance</button>
                     <button class="nav-item" data-mode="reg">👤 Registration</button>
                     <button class="nav-item" data-mode="analytics">👥 People Stats</button>
                     <button class="nav-item" data-mode="config">⚙️ Settings</button>
@@ -324,10 +327,11 @@
 
 
                 <div class="mode-toggle">
-                    <button id="btn-mode-attend" class="btn-secondary active">🕒 Attendance</button>
-                    <button id="btn-mode-reg" class="btn-secondary">👤 Registration</button>
-                    <button id="btn-mode-analytics" class="btn-secondary">👥 People Stats</button>
-                    <button id="btn-mode-config" class="btn-secondary">⚙️ Settings</button>
+                    <button id="btn-mode-attend" class="btn-secondary active" title="Mark Attendance">🕒</button>
+                    <button id="btn-mode-surveillance" class="btn-secondary" title="Surveillance Mode">🛰️</button>
+                    <button id="btn-mode-reg" class="btn-secondary" title="Add New User">👤</button>
+                    <button id="btn-mode-analytics" class="btn-secondary" title="View Stats">👥</button>
+                    <button id="btn-mode-config" class="btn-secondary" title="Settings">⚙️</button>
                 </div>
 
 
@@ -367,6 +371,19 @@
 
                         <label style="display: flex; align-items: center; gap: 8px;">
                             <input type="checkbox" id="setting-haptic-enabled" checked> Haptic Feedback (Mobile)
+                        </label>
+                    </div>
+
+                    <div class="form-group"
+                        style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 15px;">
+                        <label
+                            style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;">
+                            <span>
+                                <span style="display: block; font-weight: 600; color: #fff;">Exam Surveillance</span>
+                                <small style="color: var(--text-muted); font-size: 0.65rem;">Enable AI proctoring & live
+                                    monitoring</small>
+                            </span>
+                            <input type="checkbox" id="config-exam-mode">
                         </label>
                     </div>
 
@@ -427,6 +444,23 @@
                     </div>
                 </div>
 
+
+                <!-- Surveillance Monitoring View -->
+                <div id="mode-surveillance" class="form-group hidden">
+                    <div class="list-header">
+                        <span>LIVE EXAM SURVEILLANCE</span>
+                        <span id="surveillance-count" class="badge-course">0 Active</span>
+                    </div>
+                    <div id="surveillance-grid"
+                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; max-height: 450px; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 20px; border: 1px solid var(--border);">
+                        <!-- Live session cards will appear here -->
+                        <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">
+                            <div style="font-size: 2rem; margin-bottom: 10px;">🛡️</div>
+                            <p>No active proctoring sessions.<br><small>Students must enable Exam Mode in their
+                                    link.</small></p>
+                        </div>
+                    </div>
+                </div>
 
                 <div id="reg-form" class="form-group hidden">
                     <h3>Register New Person</h3>

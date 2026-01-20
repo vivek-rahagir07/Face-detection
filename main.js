@@ -1107,9 +1107,11 @@ async function saveSpaceConfig() {
         lng = parseFloat(parts[1].split(':')[1]);
     }
 
+    const examMode = document.getElementById('config-exam-mode').checked;
+
     try {
         await updateDoc(doc(db, COLL_SPACES, currentSpace.id), {
-            config: newConfig,
+            config: { ...newConfig, examMode: examMode },
             geofencing: {
                 enabled: geofenceEnabled,
                 radius: geofenceRadius,
@@ -1117,13 +1119,13 @@ async function saveSpaceConfig() {
             },
             qrRefreshInterval: configQrRefresh.value
         });
-        currentSpace.config = newConfig;
+        currentSpace.config = { ...newConfig, examMode: examMode };
         currentSpace.config.qrRefreshInterval = configQrRefresh.value;
         currentSpace.geofencing = { enabled: geofenceEnabled, radius: geofenceRadius, center: lat && lng ? { lat, lng } : null };
-        alert("Settings saved!");
+        showToast("Settings saved!");
         setMode('attendance');
     } catch (err) {
-        alert(err.message);
+        showToast(err.message, "error");
     }
 }
 
@@ -1146,6 +1148,12 @@ function syncConfigToggles() {
     } else {
         geoStatus.innerText = "Location not set";
         document.getElementById('config-map-container').style.display = 'none';
+    }
+
+    if (currentSpace.config && currentSpace.config.examMode) {
+        document.getElementById('config-exam-mode').checked = true;
+    } else {
+        document.getElementById('config-exam-mode').checked = false;
     }
 
     if (configQrRefresh) {
@@ -2148,9 +2156,18 @@ if (configGeoRadius) {
 // UI Handlers
 
 document.getElementById('btn-mode-attend').addEventListener('click', () => setMode('attendance'));
+document.getElementById('btn-mode-surveillance').addEventListener('click', () => setMode('surveillance'));
 document.getElementById('btn-mode-reg').addEventListener('click', () => setMode('registration'));
 document.getElementById('btn-mode-analytics').addEventListener('click', () => setMode('analytics'));
 document.getElementById('btn-mode-config').addEventListener('click', () => setMode('config'));
+
+const mobileNavItems = document.querySelectorAll('.nav-item');
+mobileNavItems.forEach(item => {
+    item.addEventListener('click', () => {
+        const mode = item.dataset.mode;
+        setMode(mode);
+    });
+});
 
 if (btnCapture) btnCapture.addEventListener('click', handleCameraRegistration);
 if (btnUploadTrigger) btnUploadTrigger.addEventListener('click', () => inputUploadPhoto.click());
@@ -2190,23 +2207,26 @@ window.addEventListener('load', async () => {
 });
 
 
+const surveillanceModePanel = document.getElementById('mode-surveillance');
+
 function setMode(mode) {
     currentMode = mode;
 
     // UI elements update
-    [regForm, attendInfo, configForm, analyticsPanel].forEach(el => el.classList.add('hidden'));
+    [regForm, attendInfo, configForm, analyticsPanel, surveillanceModePanel].forEach(el => el && el.classList.add('hidden'));
     [
         document.getElementById('btn-mode-attend'),
+        document.getElementById('btn-mode-surveillance'),
         document.getElementById('btn-mode-reg'),
         document.getElementById('btn-mode-config'),
         document.getElementById('btn-mode-analytics')
-    ].forEach(btn => btn.classList.remove('active'));
+    ].forEach(btn => btn && btn.classList.remove('active'));
 
     if (mode === 'registration') {
         regForm.classList.remove('hidden');
         document.getElementById('btn-mode-reg').classList.add('active');
         statusBadge.innerText = "Registration Mode";
-        updateRegistrationForm(); // Ensure fields are fresh
+        updateRegistrationForm();
     } else if (mode === 'config') {
         configForm.classList.remove('hidden');
         document.getElementById('btn-mode-config').classList.add('active');
@@ -2217,11 +2237,80 @@ function setMode(mode) {
         document.getElementById('btn-mode-analytics').classList.add('active');
         statusBadge.innerText = "Analytics Mode";
         renderPeopleManagement();
+    } else if (mode === 'surveillance') {
+        surveillanceModePanel.classList.remove('hidden');
+        document.getElementById('btn-mode-surveillance').classList.add('active');
+        statusBadge.innerText = "Command Center";
+        startSurveillanceMonitor();
     } else {
         attendInfo.classList.remove('hidden');
         document.getElementById('btn-mode-attend').classList.add('active');
         statusBadge.innerText = "Attendance Mode";
     }
+}
+
+let surveillanceUnsubscribe = null;
+function startSurveillanceMonitor() {
+    if (surveillanceUnsubscribe) surveillanceUnsubscribe();
+    if (!currentSpace) return;
+
+    const grid = document.getElementById('surveillance-grid');
+    const countBadge = document.getElementById('surveillance-count');
+
+    // Real-time snapshot of the space document to get liveSessions field
+    surveillanceUnsubscribe = onSnapshot(doc(db, COLL_SPACES, currentSpace.id), (snap) => {
+        const data = snap.data();
+        const sessions = data.liveSessions || {};
+
+        const now = Date.now();
+        const activeIds = Object.keys(sessions).filter(id => {
+            const lastSeen = sessions[id].lastSeen.toDate().getTime();
+            return (now - lastSeen) < 15000; // Heartbeat check (15s timeout)
+        });
+
+        countBadge.innerText = `${activeIds.length} Active`;
+
+        if (activeIds.length === 0) {
+            grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);"><div style="font-size: 2rem; margin-bottom: 10px;">🛡️</div><p>No active proctoring sessions.<br><small>Students must enable Exam Mode in their link.</small></p></div>`;
+            return;
+        }
+
+        grid.innerHTML = '';
+        activeIds.forEach(id => {
+            const session = sessions[id];
+            const behavior = session.behavior || "SECURE";
+            const isCritical = session.isSuspicious || behavior === "OFF-SCREEN";
+
+            const card = document.createElement('div');
+            card.className = 'surveillance-card';
+            card.style.cssText = `
+                background: rgba(255,255,255,0.03);
+                border-radius: 12px;
+                padding: 10px;
+                border: 1px solid ${isCritical ? '#ef4444' : (behavior === "ROTATING" ? '#fbbf24' : 'var(--border)')};
+                text-align: center;
+                animation: ${isCritical ? 'alertPulse 1s infinite' : 'none'};
+                transition: all 0.3s;
+                position: relative;
+                overflow: hidden;
+            `;
+
+            let icon = "👤";
+            if (behavior === "OFF-SCREEN") icon = "🚫";
+            else if (behavior === "DISTRACTED") icon = "🚩";
+            else if (behavior === "ROTATING") icon = "⚠️";
+
+            card.innerHTML = `
+                <div style="font-size: 1rem; margin-bottom: 3px;">${icon}</div>
+                <div style="font-size: 0.65rem; font-weight: bold; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${session.name}</div>
+                <div style="font-size: 0.55rem; color: ${isCritical ? '#ef4444' : (behavior === "ROTATING" ? '#fbbf24' : 'var(--success)')}; margin-top: 3px; font-weight:800; letter-spacing:1px;">
+                    ${behavior}
+                </div>
+                <div style="position: absolute; bottom: 0; left: 0; height: 2px; background: var(--accent); width: 100%; opacity: 0.1;"></div>
+            `;
+            grid.appendChild(card);
+        });
+    });
 }
 
 

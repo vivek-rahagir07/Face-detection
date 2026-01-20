@@ -2402,3 +2402,18 @@ body.perf-battery .status-badge::before {
         opacity: 0;
     }
 }
+
+@keyframes alertPulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 5px #ef4444, inset 0 0 5px #ef4444;
+        border-color: #ef4444;
+    }
+
+    50% {
+        box-shadow: 0 0 20px #ef4444, inset 0 0 10px #ef4444;
+        border-color: #ff0000;
+        background: rgba(239, 68, 68, 0.1);
+    }
+}
