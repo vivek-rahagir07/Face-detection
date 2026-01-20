@@ -1158,10 +1158,14 @@ function updateConfigMapPreview(lat, lng, radius, accuracy = null) {
     container.style.display = 'block';
 
     if (!configLeafletMap) {
-        configLeafletMap = L.map('config-map', { zoomControl: false }).setView([lat, lng], 17);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 20
+        configLeafletMap = L.map('config-map', { zoomControl: false, attributionControl: false }).setView([lat, lng], 18);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19
         }).addTo(configLeafletMap);
+
+        // Apply Tactical Tint
+        const mapEl = document.getElementById('config-map');
+        mapEl.style.filter = 'brightness(0.6) contrast(1.2) sepia(100%) hue-rotate(140deg) saturate(3)';
     } else {
         configLeafletMap.setView([lat, lng]);
     }
@@ -1169,14 +1173,15 @@ function updateConfigMapPreview(lat, lng, radius, accuracy = null) {
     if (configMarker) configLeafletMap.removeLayer(configMarker);
     if (configRadiusCircle) configLeafletMap.removeLayer(configRadiusCircle);
 
-    configMarker = L.circleMarker([lat, lng], {
-        radius: 6,
-        fillColor: "var(--accent)",
-        color: "#fff",
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 1
-    }).addTo(configLeafletMap);
+    // Tactical Radar Pulse Marker
+    const radarIcon = L.divIcon({
+        className: 'custom-div-icon',
+        html: `<div class="radar-pulse"></div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+    });
+
+    configMarker = L.marker([lat, lng], { icon: radarIcon }).addTo(configLeafletMap);
 
     configRadiusCircle = L.circle([lat, lng], {
         radius: radius,

@@ -285,6 +285,7 @@
         #map {
             width: 100%;
             height: 100%;
+            filter: brightness(0.6) contrast(1.2) sepia(100%) hue-rotate(140deg) saturate(3);
         }
 
         .precision-badge {
@@ -299,6 +300,63 @@
             z-index: 1000;
             border: 1px solid var(--accent);
             font-family: 'JetBrains Mono', monospace;
+        }
+
+        .map-scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            z-index: 1001;
+            box-shadow: 0 0 10px var(--accent);
+            animation: mapScan 4s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes mapScan {
+            0% {
+                top: 0;
+            }
+
+            100% {
+                top: 100%;
+            }
+        }
+
+        .radar-pulse {
+            width: 20px;
+            height: 20px;
+            background: rgba(0, 242, 255, 0.4);
+            border: 2px solid var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .radar-pulse::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 2px solid var(--accent);
+            border-radius: 50%;
+            animation: radarPulse 2s ease-out infinite;
+        }
+
+        @keyframes radarPulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(4);
+                opacity: 0;
+            }
         }
     </style>
 </head>
@@ -329,6 +387,10 @@
 
             <div id="map-container">
                 <div id="map"></div>
+                <div class="map-scan-line"></div>
+                <div
+                    style="position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.1) 0px, rgba(0,0,0,0.1) 1px, transparent 1px, transparent 2px); background-size: 100% 2px; z-index: 1000; opacity: 0.3;">
+                </div>
                 <div id="precision-stats" class="precision-badge">GPS: Calibrating...</div>
             </div>
 
@@ -579,25 +641,26 @@
             mapContainer.style.display = 'block';
 
             if (!leafletMap) {
-                leafletMap = L.map('map', { zoomControl: false }).setView([lat, lng], 18);
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                    maxZoom: 20
+                leafletMap = L.map('map', { zoomControl: false, attributionControl: false }).setView([lat, lng], 18);
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    maxZoom: 19
                 }).addTo(leafletMap);
             } else {
-                leafletMap.setView([lat, lng]);
+                leafletMap.panTo([lat, lng]);
             }
 
             if (userMarker) leafletMap.removeLayer(userMarker);
             if (accuracyCircle) leafletMap.removeLayer(accuracyCircle);
 
-            userMarker = L.circleMarker([lat, lng], {
-                radius: 6,
-                fillColor: "var(--accent)",
-                color: "#fff",
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.8
-            }).addTo(leafletMap);
+            // Tactical Radar Pulse Marker
+            const radarIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="radar-pulse"></div>`,
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+
+            userMarker = L.marker([lat, lng], { icon: radarIcon }).addTo(leafletMap);
 
             accuracyCircle = L.circle([lat, lng], {
                 radius: accuracy,
@@ -610,8 +673,8 @@
             if (targetLat && !targetCircle) {
                 targetCircle = L.circle([targetLat, targetLng], {
                     radius: targetRadius,
-                    color: "rgba(255, 255, 255, 0.2)",
-                    fillColor: "rgba(255, 255, 255, 0.05)",
+                    color: "rgba(255, 255, 255, 0.4)",
+                    fillColor: "rgba(0, 242, 255, 0.05)",
                     fillOpacity: 0.1,
                     weight: 2,
                     dashArray: '5, 10'
@@ -619,7 +682,7 @@
             }
 
             const stats = document.getElementById('precision-stats');
-            stats.innerText = `Precision: ±${accuracy.toFixed(1)}m`;
+            stats.innerText = `TACTICAL LOCK: ±${accuracy.toFixed(1)}m`;
             if (accuracy > 20) {
                 stats.style.color = "#ff4444";
                 stats.innerText += " (Weak Signal)";

@@ -2366,3 +2366,39 @@ body.perf-battery .status-badge::before {
         opacity: 0.3;
     }
 }
+
+/* Tactical Radar Pulse */
+.radar-pulse {
+    width: 20px;
+    height: 20px;
+    background: rgba(0, 242, 255, 0.4);
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1000;
+}
+
+.radar-pulse::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    animation: radarPulse 2s ease-out infinite;
+}
+
+@keyframes radarPulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
