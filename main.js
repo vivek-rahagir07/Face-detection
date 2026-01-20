@@ -210,7 +210,7 @@ loadSettings();
 let hourlyChart = null;
 
 // Advanced Detection State
-const VALIDATION_THRESHOLD = 3; // Requires 3 frames of verification
+const VALIDATION_THRESHOLD = 6; // Requires 6 frames of verification (Increased from 3 to prevent false positives)
 const detectionHistory = {};
 
 // Set Live Date & Time
@@ -1283,7 +1283,7 @@ function startDbListener() {
         allUsersData = tempAllData;
 
         if (labeledDescriptors.length > 0) {
-            faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6); // Stricter match threshold
+            faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45); // Stricter match threshold (Decreased from 0.6)
         }
 
         todayCountDisplay.innerText = presentTodayCount;
@@ -1792,7 +1792,7 @@ video.addEventListener('play', () => {
 
                 detections.forEach((detection, i) => {
                     const result = results[i];
-                    const isAttendanceMatch = result.label !== 'unknown' && result.distance <= 0.6;
+                    const isAttendanceMatch = result.label !== 'unknown' && result.distance <= 0.45;
                     if (isAttendanceMatch) {
                         detectionHistory[result.label] = (detectionHistory[result.label] || 0) + 1;
                         if (detectionHistory[result.label] >= VALIDATION_THRESHOLD) {
