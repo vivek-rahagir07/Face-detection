@@ -637,6 +637,8 @@ async function openHistoryModal() {
     historyTableBody.innerHTML = '';
     historyStatus.innerText = 'Select a date to view attendance';
     btnExportHistory.style.display = 'none';
+    const btnExportHistoryPdf = document.getElementById('btn-export-history-pdf');
+    if (btnExportHistoryPdf) btnExportHistoryPdf.style.display = 'none';
     currentHistoryRecords = [];
     currentHistoryDate = '';
 
@@ -684,6 +686,8 @@ async function loadHistoryForDate(date, btnElement) {
     historyTableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">Fetching records...</td></tr>';
     historyStatus.innerText = `Loading attendance for ${date}...`;
     btnExportHistory.style.display = 'none';
+    const btnExportHistoryPdf = document.getElementById('btn-export-history-pdf');
+    if (btnExportHistoryPdf) btnExportHistoryPdf.style.display = 'none';
 
     try {
         const q = query(collection(db, COLL_ATTENDANCE),
@@ -698,7 +702,9 @@ async function loadHistoryForDate(date, btnElement) {
         currentHistoryRecords = records;
 
         renderHistoryTable(records);
-        btnExportHistory.style.display = records.length > 0 ? 'block' : 'none';
+        const showBtns = records.length > 0 ? 'block' : 'none';
+        btnExportHistory.style.display = showBtns;
+        if (btnExportHistoryPdf) btnExportHistoryPdf.style.display = showBtns;
 
     } catch (err) {
         console.error("History Data Load Fail:", err);
@@ -2242,6 +2248,10 @@ if (btnUploadTrigger) btnUploadTrigger.addEventListener('click', () => inputUplo
 if (inputUploadPhoto) inputUploadPhoto.addEventListener('change', handlePhotoUpload);
 
 if (btnExport) btnExport.addEventListener('click', exportToExcel);
+const btnExportPdf = document.getElementById('btn-export-pdf');
+if (btnExportPdf) btnExportPdf.addEventListener('click', exportToPDF);
+const btnExportHistoryPdf = document.getElementById('btn-export-history-pdf');
+if (btnExportHistoryPdf) btnExportHistoryPdf.addEventListener('click', exportHistoryToPDF);
 
 // Magic Link Event Listeners
 const btnGenerateMagic = document.getElementById('btn-generate-magic');
@@ -2414,6 +2424,123 @@ async function exportToExcel() {
     } catch (err) {
         console.error("Export Error:", err);
         alert("Failed to export: " + err.message);
+    }
+}
+
+async function exportToPDF() {
+    if (allUsersData.length === 0) {
+        alert("No data available for this workspace.");
+        return;
+    }
+
+    try {
+        showToast("Generating Master PDF Report...", "info");
+
+        // 1. Fetch all attendance records
+        const attendQuery = query(
+            collection(db, COLL_ATTENDANCE),
+            where("spaceId", "==", currentSpace.id)
+        );
+        const attendSnap = await getDocs(attendQuery);
+
+        // 2. Map data
+        const attendanceMap = {};
+        const uniqueDates = new Set();
+        attendSnap.forEach(snap => {
+            const data = snap.data();
+            if (!attendanceMap[data.userId]) attendanceMap[data.userId] = {};
+            attendanceMap[data.userId][data.date] = true;
+            uniqueDates.add(data.date);
+        });
+
+        const sortedDates = Array.from(uniqueDates).sort();
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('l', 'mm', 'a4'); // Landscape for more space
+
+        // 3. Document Setup
+        doc.setFontSize(20);
+        doc.text("CognitoAttend Master Report", 14, 22);
+        doc.setFontSize(10);
+        doc.text(`Workspace: ${currentSpace.name}`, 14, 30);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 36);
+
+        // 4. Table Setup
+        const tableHeaders = ["Name", "Reg No", "Course", "Present", "Pct", ...sortedDates.map(d => d.split('-').slice(1).reverse().join('/'))];
+        const tableData = [];
+
+        const sortedUsers = [...allUsersData].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+        sortedUsers.forEach(user => {
+            const presentDays = Object.keys(attendanceMap[user.id] || {}).length;
+            const percentage = sortedDates.length > 0 ? ((presentDays / sortedDates.length) * 100).toFixed(0) + '%' : '0%';
+
+            const row = [
+                user.name || 'Unknown',
+                user.regNo || '-',
+                user.course || '-',
+                presentDays,
+                percentage
+            ];
+
+            sortedDates.forEach(date => {
+                row.push(attendanceMap[user.id]?.[date] ? "P" : "-");
+            });
+            tableData.push(row);
+        });
+
+        doc.autoTable({
+            startY: 45,
+            head: [tableHeaders],
+            body: tableData,
+            theme: 'grid',
+            headStyles: { fillColor: [0, 242, 255], textColor: [0, 0, 0] },
+            styles: { fontSize: 7, cellPadding: 1 },
+            columnStyles: { 0: { cellWidth: 35 } }
+        });
+
+        doc.save(`Master_Attendance_${currentSpace.name.replace(/\s+/g, '_')}.pdf`);
+        showToast("PDF Exported!");
+
+    } catch (err) {
+        console.error("PDF Export Error:", err);
+        showToast("Failed to export PDF", "error");
+    }
+}
+
+async function exportHistoryToPDF() {
+    if (currentHistoryRecords.length === 0) return;
+
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        doc.setFontSize(20);
+        doc.text("Attendance Report", 14, 22);
+        doc.setFontSize(11);
+        doc.text(`Workspace: ${currentSpace.name}`, 14, 30);
+        doc.text(`Date: ${currentHistoryDate}`, 14, 36);
+
+        const tableHeaders = ["Name", "Reg No", "Course", "Time"];
+        const tableData = currentHistoryRecords.map(r => [
+            r.name,
+            r.regNo || '-',
+            r.course || '-',
+            r.timestamp ? (r.timestamp.toDate ? r.timestamp.toDate() : new Date(r.timestamp)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'
+        ]);
+
+        doc.autoTable({
+            startY: 45,
+            head: [tableHeaders],
+            body: tableData,
+            theme: 'striped',
+            headStyles: { fillColor: [0, 242, 255], textColor: [0, 0, 0] }
+        });
+
+        doc.save(`Attendance_${currentSpace.name}_${currentHistoryDate}.pdf`);
+        showToast("History PDF Exported!");
+    } catch (err) {
+        console.error("History PDF Export Error:", err);
+        showToast("Failed to export PDF", "error");
     }
 }
 

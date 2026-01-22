@@ -68,6 +68,8 @@
 
 
     <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 
     <!-- Structured Data -->
     <script type="application/ld+json">
@@ -430,7 +432,10 @@
                                 <span id="tab-present" class="attendance-tab active">Present</span>
                                 <span id="tab-absent" class="attendance-tab">Absent</span>
                             </div>
-                            <button id="btn-export" class="btn-export">📥 Export Sheet</button>
+                            <div style="display: flex; gap: 6px;">
+                                <button id="btn-export" class="btn-export">📊 CSV</button>
+                                <button id="btn-export-pdf" class="btn-export">📄 PDF</button>
+                            </div>
                         </div>
                         <div class="scrollable-list" id="today-list">
                             <div style="padding:10px; text-align:center; color:#888;">No attendance yet</div>
@@ -496,8 +501,12 @@
             <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center;">
                 <input type="text" id="history-search" placeholder="Search by name, reg no..."
                     style="flex: 1; margin: 0;">
-                <button id="btn-export-history" class="btn-export" style="height: 45px; display: none;">📥 Export
-                    CSV</button>
+                <div style="display: flex; gap: 6px;">
+                    <button id="btn-export-history" class="btn-export" style="height: 45px; display: none;">📊
+                        CSV</button>
+                    <button id="btn-export-history-pdf" class="btn-export" style="height: 45px; display: none;">📄
+                        PDF</button>
+                </div>
             </div>
 
             <div id="history-table-container" class="scrollable-list"
