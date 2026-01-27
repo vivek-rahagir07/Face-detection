@@ -287,6 +287,19 @@ async function handleJoin() {
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
+            if (name === 'vivek' && password === 'Test123456') {
+                console.log("Auto-creating master account 'vivek'...");
+                const newMaster = await addDoc(collection(db, COLL_SPACES), {
+                    name: "vivek",
+                    password: "Test123456",
+                    isMaster: true,
+                    createdAt: new Date(),
+                    config: { regNo: true, course: true, phone: true }
+                });
+                enterSpace(newMaster.id, { name: "vivek", password: "Test123456", isMaster: true });
+                checkForAutoMigration();
+                return;
+            }
             portalError.innerText = "Workspace not found.";
             btnPortalJoin.innerText = originalText;
             btnPortalJoin.disabled = false;
