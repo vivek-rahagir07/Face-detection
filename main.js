@@ -86,6 +86,7 @@ let currentSpace = null;
 let labeledDescriptors = [];
 let faceMatcher = null;
 let isModelsLoaded = false;
+let isLoadingModels = false;
 let nameToDocId = {};
 const attendanceCooldowns = {};
 let allUsersData = [];
@@ -611,7 +612,7 @@ sideNavItems.forEach(item => {
     item.addEventListener('click', () => {
         const mode = item.dataset.mode;
         // Trigger the corresponding mode button click
-        const targetBtn = document.getElementById(`btn-mode-${mode === 'attend' ? 'attend' : mode === 'reg' ? 'reg' : mode === 'analytics' ? 'analytics' : 'config'}`);
+        const targetBtn = document.getElementById(`btn-mode-${mode}`);
         if (targetBtn) targetBtn.click();
 
         // Update active state in sidebar
@@ -860,7 +861,7 @@ if (btnExportHistory) {
 // 4. FACE API & CAMERA
 // ==========================================
 
-const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models/';
+const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
 // Fallback URL if the primary one fails
 const FALLBACK_MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/';
 
@@ -870,7 +871,7 @@ async function loadModels(url) {
         loadingText.innerText = `Loading AI models from ${url.includes('github') ? 'GitHub' : 'CDN'}...`;
 
         await Promise.all([
-            faceapi.nets.ssdMobilenetv1.loadFromUri(url),
+            faceapi.nets.tinyFaceDetector.loadFromUri(url),
             faceapi.nets.faceLandmark68Net.loadFromUri(url),
             faceapi.nets.faceRecognitionNet.loadFromUri(url)
         ]);
@@ -884,7 +885,8 @@ async function loadModels(url) {
 }
 
 async function initSystem() {
-    console.log("System initialization started.");
+    if (isLoadingModels && !isModelsLoaded) return;
+    isLoadingModels = true;
     loadingOverlay.style.display = "flex"; // Force show overlay if starting
 
     if (isModelsLoaded) {
@@ -931,8 +933,8 @@ async function initSystem() {
     }
 }
 
-// System initialization will be triggered when entering a space
-// initSystem();
+// System initialization triggered on app load for faster startup
+initSystem();
 
 async function startVideo() {
     statusBadge.innerText = "Accessing Camera...";
@@ -1916,7 +1918,7 @@ video.addEventListener('play', () => {
                 updateDisplaySize();
             }
 
-            const detections = await faceapi.detectAllFaces(video)
+            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
                 .withFaceLandmarks()
                 .withFaceDescriptors();
 
@@ -2397,7 +2399,8 @@ function setMode(mode) {
         document.getElementById('btn-mode-attend'),
         document.getElementById('btn-mode-reg'),
         document.getElementById('btn-mode-config'),
-        document.getElementById('btn-mode-analytics')
+        document.getElementById('btn-mode-analytics'),
+        document.getElementById('btn-mode-subspaces')
     ].forEach(btn => btn && btn.classList.remove('active'));
 
     if (mode === 'registration') {
@@ -2410,6 +2413,11 @@ function setMode(mode) {
         document.getElementById('btn-mode-config').classList.add('active');
         statusBadge.innerText = "Configuration";
         syncConfigToggles();
+    } else if (mode === 'analytics') {
+        analyticsPanel.classList.remove('hidden');
+        document.getElementById('btn-mode-analytics').classList.add('active');
+        statusBadge.innerText = "Analytics & Logs";
+        renderPeopleManagement();
     } else if (mode === 'subspaces') {
         subspacesPanel.classList.remove('hidden');
         document.getElementById('btn-mode-subspaces').classList.add('active');

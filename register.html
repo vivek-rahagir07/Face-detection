@@ -375,7 +375,7 @@
 
         // Model loading
         // Model URLs with fallback
-        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models/';
+        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
         const FALLBACK_MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/';
 
         function showError(title, message) {
@@ -513,8 +513,14 @@
                 document.getElementById('space-name-display').innerText = workspaceConfig.name || "Workspace";
                 setupDynamicFields(workspaceConfig.config || {});
 
-                // 2. Start Camera and Load Models PARALLELLY
-                feedback.innerText = "Initializing Hardware & AI...";
+                // Start loading models IMMEDIATELY (Global Scope/Background)
+                const modelsPromise = (async () => {
+                    let ok = await loadModel(MODEL_URL);
+                    if (!ok) ok = await loadModel(FALLBACK_MODEL_URL);
+                    if (!ok) throw new Error("Could not load AI models from any source.");
+                    console.log("Models loaded in background");
+                    return true;
+                })();
 
                 const cameraPromise = (async () => {
                     const constraintsList = [
@@ -552,21 +558,10 @@
                     }
                 };
 
-                const modelsPromise = (async () => {
-                    let ok = await loadModel(MODEL_URL);
-                    if (!ok) ok = await loadModel(FALLBACK_MODEL_URL);
-                    if (!ok) throw new Error("Could not load AI models from any source.");
-                    return true;
-                })();
+                // Wait for models and camera
+                await Promise.all([modelsPromise, cameraPromise]);
 
-                // Wait for camera first so user sees feed immediately
-                await cameraPromise;
                 loadingOverlay.style.display = 'none';
-                feedback.innerText = "Camera Ready. Waiting for AI...";
-
-                // Then wait for models
-                await modelsPromise;
-
                 await signInAnonymously(auth);
                 feedback.innerText = "Ready to scan face";
                 feedback.style.color = "#10b981";
