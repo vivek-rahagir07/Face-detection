@@ -375,7 +375,7 @@
 
         // Model loading
         // Model URLs with fallback
-        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models/';
         const FALLBACK_MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/';
 
         function showError(title, message) {
@@ -517,14 +517,26 @@
                 feedback.innerText = "Initializing Hardware & AI...";
 
                 const cameraPromise = (async () => {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-                    video.srcObject = stream;
-                    await video.play();
-                    video.onloadedmetadata = () => {
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
-                    };
-                    return true;
+                    const constraintsList = [
+                        { video: { facingMode: 'user' } },
+                        { video: true }
+                    ];
+                    let lastErr = null;
+                    for (const constraints of constraintsList) {
+                        try {
+                            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                            video.srcObject = stream;
+                            await video.play();
+                            video.onloadedmetadata = () => {
+                                canvas.width = video.videoWidth;
+                                canvas.height = video.videoHeight;
+                            };
+                            return true;
+                        } catch (e) {
+                            lastErr = e;
+                        }
+                    }
+                    throw lastErr || new Error("Camera initialization failed.");
                 })();
 
                 const loadModel = async (url) => {

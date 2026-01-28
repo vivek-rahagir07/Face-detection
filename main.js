@@ -860,7 +860,7 @@ if (btnExportHistory) {
 // 4. FACE API & CAMERA
 // ==========================================
 
-const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models/';
 // Fallback URL if the primary one fails
 const FALLBACK_MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/';
 
@@ -934,55 +934,42 @@ async function initSystem() {
 // System initialization will be triggered when entering a space
 // initSystem();
 
-function startVideo() {
+async function startVideo() {
     statusBadge.innerText = "Accessing Camera...";
-    console.log("Requesting camera with constraints...");
+    console.log("Requesting camera...");
 
-    const constraints = {
-        video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            aspectRatio: 1.777777778,
-            facingMode: "user"
-        }
-    };
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        return handleCameraError(new Error("Your browser does not support camera access or you are in a non-secure (HTTP) context."));
+    }
 
-    // Timeout for camera access
-    const cameraTimeout = setTimeout(() => {
-        if (statusBadge.innerText === "Accessing Camera...") {
-            loadingText.innerHTML = "Camera taking too long... <br><small>Check if another app is using it.</small>";
-            const retryBtn = document.createElement('button');
-            retryBtn.innerText = "Try Again";
-            retryBtn.className = "btn-primary";
-            retryBtn.onclick = () => window.location.reload();
-            loadingOverlay.appendChild(retryBtn);
-        }
-    }, 10000);
+    const constraintsList = [
+        { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" } },
+        { video: { facingMode: "user" } },
+        { video: true }
+    ];
 
-    navigator.mediaDevices.getUserMedia(constraints)
-        .then(stream => {
-            clearTimeout(cameraTimeout);
+    let lastErr = null;
+    for (const constraints of constraintsList) {
+        try {
+            console.log("Trying constraints:", constraints);
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
             console.log("Camera access granted.");
             video.srcObject = stream;
 
-            // Use both onloadedmetadata and a backup check
-            video.onloadedmetadata = () => {
-                playVideo();
-            };
+            video.onloadedmetadata = () => playVideo();
 
-            // Backup if onloadedmetadata doesn't fire (happens on some mobile browsers)
+            // Backup check
             setTimeout(() => {
-                if (video.paused && video.srcObject) {
-                    console.log("onloadedmetadata backup triggered");
-                    playVideo();
-                }
+                if (video.paused && video.srcObject) playVideo();
             }, 1000);
-        })
-        .catch(err => {
-            clearTimeout(cameraTimeout);
-            console.error("Camera Error:", err);
-            handleCameraError(err);
-        });
+            return;
+        } catch (err) {
+            lastErr = err;
+            console.warn("Constraint failed:", constraints, err);
+        }
+    }
+
+    handleCameraError(lastErr || new Error("Unknown camera error"));
 }
 
 function playVideo() {
@@ -2855,6 +2842,17 @@ function init3DFace(containerId) {
     });
 }
 
+// Manual Consolidation Trigger (Exported for UI)
+// Manual Consolidation Trigger (Exported for UI)
+async function triggerManualConsolidation() {
+    if (!currentSpace || currentSpace.name !== 'vivek') return;
+    const targets = ["Divya Sharma", "Navodya Prep", "Test", "divya sharma", "navodya", "test"];
+    if (confirm("Consolidate data from legacy workspaces (" + targets.join(", ") + ") into your 'Consolidated Batch' now?")) {
+        await performMerge(targets);
+    }
+}
+window.triggerManualConsolidation = triggerManualConsolidation;
+
 // --- Hierarchical Classroom Hub Logic ---
 
 async function renderClassroomHub() {
@@ -2867,6 +2865,14 @@ async function renderClassroomHub() {
         const q = query(collection(db, COLL_SPACES), where("parentSpaceId", "==", currentSpace.id));
         const snap = await getDocs(q);
         hubClassroomList.innerHTML = '';
+
+        // Add Manual Consolidation Button for 'vivek'
+        if (currentSpace.name === 'vivek') {
+            const adminDiv = document.createElement('div');
+            adminDiv.style = "grid-column: 1/-1; margin-bottom: 20px; display: flex; justify-content: center;";
+            adminDiv.innerHTML = `<button class="btn-secondary btn-sm" onclick="triggerManualConsolidation()" style="border-color: var(--warning); color: var(--warning);">⚡ Consolidate Legacy Data (Test/Navodya/Divya)</button>`;
+            hubClassroomList.appendChild(adminDiv);
+        }
 
         if (snap.empty) {
             hubClassroomList.innerHTML = `
@@ -2917,9 +2923,9 @@ async function renderClassroomHub() {
 // Classroom Management Logic
 function openEditClassroomModal(id, currentName) {
     editingClassroomId = id;
-    editClassroomNameInput.value = currentName;
-    editClassroomNameTitle.innerText = currentName;
-    classroomEditModal.classList.remove('hidden');
+    if (editClassroomNameInput) editClassroomNameInput.value = currentName;
+    if (editClassroomNameTitle) editClassroomNameTitle.innerText = currentName;
+    if (classroomEditModal) classroomEditModal.classList.remove('hidden');
 }
 window.openEditClassroomModal = openEditClassroomModal;
 
@@ -2932,36 +2938,43 @@ async function updateClassroom() {
     const newName = editClassroomNameInput.value.trim();
     if (!newName) return alert("Please enter a name.");
 
-    btnSaveClassroomEdit.disabled = true;
-    btnSaveClassroomEdit.innerText = "Saving...";
+    if (btnSaveClassroomEdit) {
+        btnSaveClassroomEdit.disabled = true;
+        btnSaveClassroomEdit.innerText = "Saving...";
+    }
 
     try {
         await updateDoc(doc(db, COLL_SPACES, editingClassroomId), { name: newName });
         showToast(`Classroom renamed to: ${newName}`, "success");
-        classroomEditModal.classList.add('hidden');
+        if (classroomEditModal) classroomEditModal.classList.add('hidden');
         renderClassroomHub();
         renderSubspaces();
 
         // If we renamed the current space, update title
         if (currentSpace && currentSpace.id === editingClassroomId) {
             currentSpace.name = newName;
-            currentSpaceTitle.innerText = newName;
+            if (currentSpaceTitle) currentSpaceTitle.innerText = newName;
         }
     } catch (e) {
         showToast("Rename failed: " + e.message, "error");
     } finally {
-        btnSaveClassroomEdit.disabled = false;
-        btnSaveClassroomEdit.innerText = "Save Changes";
+        if (btnSaveClassroomEdit) {
+            btnSaveClassroomEdit.disabled = false;
+            btnSaveClassroomEdit.innerText = "Save Changes";
+        }
     }
 }
+window.updateClassroom = updateClassroom;
 
 if (btnSaveClassroomEdit) {
     btnSaveClassroomEdit.onclick = updateClassroom;
 }
 
-window.deleteClassroom = function (id, name) {
-    confirmMessage.innerText = `Danger: This will permanently delete the classroom '${name}' and all its configuration. Attendance data and users will NOT be deleted but will lose their workspace link. Continue?`;
-    confirmModal.classList.remove('hidden');
+function deleteClassroom(id, name) {
+    if (confirmMessage) {
+        confirmMessage.innerText = `Danger: This will permanently delete the classroom '${name}' and all its configuration. Attendance data and users will NOT be deleted but will lose their workspace link. Continue?`;
+    }
+    if (confirmModal) confirmModal.classList.remove('hidden');
     confirmCallback = async () => {
         showToast(`Deleting ${name}...`, "warning");
         try {
@@ -2972,13 +2985,14 @@ window.deleteClassroom = function (id, name) {
 
             // If deleted current space, exit
             if (currentSpace && currentSpace.id === id) {
-                btnBackToHub.click();
+                if (btnBackToHub) btnBackToHub.click();
             }
         } catch (e) {
             showToast("Delete failed: " + e.message, "error");
         }
     };
-};
+}
+window.deleteClassroom = deleteClassroom;
 
 async function renderSubspaces() {
     if (!currentSpace) return;
@@ -3048,11 +3062,15 @@ async function createSubspace() {
 
 async function enterClassroom(id) {
     showToast("Entering classroom...");
-    const docRef = doc(db, COLL_SPACES, id);
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
-        const data = snap.data();
-        enterSpace(id, data);
+    try {
+        const docRef = doc(db, COLL_SPACES, id);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+            const data = snap.data();
+            enterSpace(id, data);
+        }
+    } catch (e) {
+        showToast("Enter fail: " + e.message, "error");
     }
 }
 window.enterClassroom = enterClassroom;
@@ -3130,11 +3148,12 @@ async function checkForAutoMigration() {
     }
 
 
-    // Migration for Divya Sharma, Navodya Prep, Test
-    const targets = ["Divya Sharma", "Navodya Prep", "Test"];
+    // Migration for Divya Sharma, Navodya Prep, Test, and lowercase variants
+    const targets = ["Divya Sharma", "Navodya Prep", "Test", "divya sharma", "navodya", "test"];
     let migrationNeeded = false;
 
     for (const targetName of targets) {
+        // Query both exact and lowercase if possible (Firestore is case-sensitive, so we check both)
         const tq = query(collection(db, COLL_SPACES), where("name", "==", targetName));
         const tSnap = await getDocs(tq);
         if (!tSnap.empty) {
