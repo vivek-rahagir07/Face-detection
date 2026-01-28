@@ -186,8 +186,9 @@
             <p>Select your workspace to continue</p>
 
             <div class="portal-tabs">
-                <button id="tab-join" class="portal-tab active">Join Workspace</button>
-                <button id="tab-create" class="portal-tab">Create New</button>
+                <button id="tab-join" class="portal-tab active" title="Join existing workspace">Join</button>
+                <button id="tab-create" class="portal-tab" title="Create single workspace">Solo</button>
+                <button id="tab-hub" class="portal-tab" title="Create classroom management hub">Hub</button>
             </div>
 
             <!-- Join -->
@@ -203,16 +204,22 @@
                 </div>
             </div>
 
-            <!-- Create -->
+            <!-- Create Solo -->
             <div id="form-create" class="portal-form hidden">
                 <div class="form-group">
-                    <label for="portal-create-name" class="sr-only">New Workspace Name</label>
-                    <input type="text" id="portal-create-name" placeholder="New Workspace Name"
-                        aria-label="New Workspace Name">
-                    <label for="portal-create-pass" class="sr-only">Set Workspace Password</label>
-                    <input type="password" id="portal-create-pass" placeholder="Set Workspace Password"
-                        aria-label="Set Workspace Password">
-                    <button id="btn-portal-create" class="btn-primary">Initialize & Enter</button>
+                    <input type="text" id="portal-create-name" placeholder="Solo Workspace Name">
+                    <input type="password" id="portal-create-pass" placeholder="Set Password">
+                    <button id="btn-portal-create" class="btn-primary">Create Solo Space</button>
+                </div>
+            </div>
+
+            <!-- Create Hub -->
+            <div id="form-hub" class="portal-form hidden">
+                <div class="form-group">
+                    <input type="text" id="portal-hub-name" placeholder="Hub Name (e.g. Science Dept)">
+                    <input type="password" id="portal-hub-pass" placeholder="Set Hub Password">
+                    <button id="btn-portal-create-hub" class="btn-primary"
+                        style="background: var(--accent); color: black;">Initialize Hub</button>
                 </div>
             </div>
 
@@ -234,6 +241,9 @@
     <!-- Classroom Selector View (Hub) -->
     <div id="view-selector" class="portal-container hidden"
         style="background: var(--bg-deep); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 40px 20px; overflow-y: auto;">
+        <button id="btn-selector-back" class="btn-secondary btn-sm"
+            style="position: absolute; top: 20px; left: 20px; border-color: var(--accent); color: var(--accent);">⬅ Back
+            to Monitor</button>
         <div class="selector-header" style="text-align: center; margin-bottom: 40px; width: 100%; max-width: 800px;">
             <h1 style="font-size: 2.5rem; margin-bottom: 10px;">Classroom Hub</h1>
             <p style="color: var(--text-muted);">Manage your batches and rooms from one place.</p>
@@ -457,6 +467,23 @@
                         style="margin-top: 10px; font-size: 0.85rem; text-align: center; min-height: 20px;"></div>
                 </div>
 
+
+                <div id="subspaces-panel" class="hidden">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3>Sub-Workspaces</h3>
+                        <button id="btn-open-grid-hub" class="btn-secondary btn-sm"
+                            style="border-color: var(--accent); color: var(--accent); display: none;">📊 Grid
+                            View</button>
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                        <input type="text" id="input-subspace-name" placeholder="New room name..."
+                            style="flex: 1; margin: 0;">
+                        <button id="btn-create-subspace" class="btn-primary"
+                            style="width: auto; padding: 0 15px;">Add</button>
+                    </div>
+                    <div id="subspaces-list" class="scrollable-list"></div>
+                </div>
 
                 <div id="attend-info">
                     <div style="margin-bottom: 15px;">

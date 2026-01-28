@@ -26,17 +26,23 @@ const COLL_ATTENDANCE = 'attendance';
 const viewPortal = document.getElementById('view-portal');
 const tabJoin = document.getElementById('tab-join');
 const tabCreate = document.getElementById('tab-create');
+const tabHub = document.getElementById('tab-hub');
 const formJoin = document.getElementById('form-join');
 const formCreate = document.getElementById('form-create');
+const formHub = document.getElementById('form-hub');
 const portalJoinName = document.getElementById('portal-join-name');
 const portalJoinPass = document.getElementById('portal-join-pass');
 const portalCreateName = document.getElementById('portal-create-name');
 const portalCreatePass = document.getElementById('portal-create-pass');
+const portalHubName = document.getElementById('portal-hub-name');
+const portalHubPass = document.getElementById('portal-hub-pass');
 const btnPortalJoin = document.getElementById('btn-portal-join');
 const btnPortalCreate = document.getElementById('btn-portal-create');
+const btnPortalCreateHub = document.getElementById('btn-portal-create-hub');
 const portalError = document.getElementById('portal-error');
 const btnPortalContinue = document.getElementById('btn-portal-continue');
 const portalMobileStart = document.getElementById('portal-mobile-start');
+const btnSelectorBack = document.getElementById('btn-selector-back');
 const portalCard = document.querySelector('.portal-card');
 
 
@@ -77,6 +83,7 @@ const subspacesPanel = document.getElementById('subspaces-panel');
 const subspacesList = document.getElementById('subspaces-list');
 const inputSubspaceName = document.getElementById('input-subspace-name');
 const btnCreateSubspace = document.getElementById('btn-create-subspace');
+const btnOpenGridHub = document.getElementById('btn-open-grid-hub');
 
 let currentHistoryRecords = [];
 let currentHistoryDate = '';
@@ -284,6 +291,9 @@ function setupEnterKeys() {
         });
     });
 
+    if (portalHubName) portalHubName.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleCreateHub(); });
+    if (portalHubPass) portalHubPass.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleCreateHub(); });
+
     if (inputHubNewSpace) {
         inputHubNewSpace.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') createHubSpace();
@@ -305,19 +315,19 @@ function showView(viewId) {
 }
 
 // Tab Switching
-if (tabJoin) tabJoin.addEventListener('click', () => {
-    tabJoin.classList.add('active');
-    tabCreate.classList.remove('active');
-    formJoin.classList.remove('hidden');
-    formCreate.classList.add('hidden');
-});
+function switchPortalTab(target) {
+    [tabJoin, tabCreate, tabHub].forEach(t => t ? t.classList.remove('active') : null);
+    [formJoin, formCreate, formHub].forEach(f => f ? f.classList.add('hidden') : null);
 
-if (tabCreate) tabCreate.addEventListener('click', () => {
-    tabCreate.classList.add('active');
-    tabJoin.classList.remove('active');
-    formCreate.classList.remove('hidden');
-    formJoin.classList.add('hidden');
-});
+    if (target === 'join') { tabJoin.classList.add('active'); formJoin.classList.remove('hidden'); }
+    if (target === 'create') { tabCreate.classList.add('active'); formCreate.classList.remove('hidden'); }
+    if (target === 'hub') { tabHub.classList.add('active'); formHub.classList.remove('hidden'); }
+    portalError.innerText = "";
+}
+
+if (tabJoin) tabJoin.onclick = () => switchPortalTab('join');
+if (tabCreate) tabCreate.onclick = () => switchPortalTab('create');
+if (tabHub) tabHub.onclick = () => switchPortalTab('hub');
 
 async function handleJoin() {
     const name = portalJoinName.value.trim();
@@ -390,11 +400,11 @@ async function handleCreate() {
     btnPortalCreate.disabled = true;
 
     try {
-        console.log("Creating workspace:", name);
+        console.log("Creating solo workspace:", name);
         const q = query(collection(db, COLL_SPACES), where("name", "==", name));
         const snap = await getDocs(q);
         if (!snap.empty) {
-            alert("Workspace name already taken! Please choose another.");
+            alert("Workspace name already taken!");
             btnPortalCreate.innerText = originalText;
             btnPortalCreate.disabled = false;
             return;
@@ -403,20 +413,61 @@ async function handleCreate() {
         const docRef = await addDoc(collection(db, COLL_SPACES), {
             name: name,
             password: password,
-            isMaster: true,
+            isMaster: false, // Solo workspaces are not hubs (As earlier)
             createdAt: new Date(),
             config: { regNo: true, course: true, phone: false, voiceEnabled: true }
         });
 
-        console.log("Workspace created:", docRef.id);
-        enterSpace(docRef.id, { name, password, isMaster: true, config: { regNo: true, course: true, phone: false, voiceEnabled: true } });
+        console.log("Solo Workspace created:", docRef.id);
+        enterSpace(docRef.id, { name, password, isMaster: false, config: { regNo: true, course: true, phone: false, voiceEnabled: true } });
 
     } catch (err) {
-        console.error("Workspace Creation Error:", err);
+        console.error("Solo Workspace Creation Error:", err);
         alert("Creation Fail: " + err.message);
         portalError.innerText = "Create Error: " + err.message;
         btnPortalCreate.innerText = originalText;
         btnPortalCreate.disabled = false;
+    }
+}
+
+async function handleCreateHub() {
+    const name = portalHubName.value.trim();
+    const password = portalHubPass.value.trim();
+    if (!name || !password) return alert("Enter hub name and password");
+    if (password.length < 4) return alert("Password too short (min 4)");
+
+    const originalText = btnPortalCreateHub.innerText;
+    btnPortalCreateHub.innerText = "Initialising Hub...";
+    btnPortalCreateHub.disabled = true;
+
+    try {
+        console.log("Creating Classroom Hub:", name);
+        const q = query(collection(db, COLL_SPACES), where("name", "==", name));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+            alert("Hub name already taken!");
+            btnPortalCreateHub.innerText = originalText;
+            btnPortalCreateHub.disabled = false;
+            return;
+        }
+
+        const docRef = await addDoc(collection(db, COLL_SPACES), {
+            name: name,
+            password: password,
+            isMaster: true, // Hubs are masters
+            createdAt: new Date(),
+            config: { regNo: true, course: true, phone: false, voiceEnabled: true }
+        });
+
+        console.log("Hub created:", docRef.id);
+        enterSpace(docRef.id, { name, password, isMaster: true, config: { regNo: true, course: true, phone: false, voiceEnabled: true } });
+
+    } catch (err) {
+        console.error("Hub Creation Error:", err);
+        alert("Hub Creation Fail: " + err.message);
+        portalError.innerText = "Hub Error: " + err.message;
+        btnPortalCreateHub.innerText = originalText;
+        btnPortalCreateHub.disabled = false;
     }
 }
 
@@ -425,16 +476,12 @@ function enterSpace(id, data) {
     currentSpaceTitle.innerText = currentSpace.name;
     portalError.innerText = "";
 
-    // If Master account (or any root workspace), show selector hub
+    // Remember master context if applicable
     if (currentSpace.isMaster || !currentSpace.parentSpaceId) {
-        masterSpace = { ...currentSpace }; // Always update master context when entering a master
-        showView('view-selector');
-        renderClassroomHub();
-        return;
+        masterSpace = { ...currentSpace };
     }
 
-
-    // Standard entry flow
+    // Standard entry flow - Always go to operation view (As earlier)
     showView('view-operation');
     btnBackToHub.style.display = (currentSpace.parentSpaceId || masterSpace) ? 'block' : 'none';
 
@@ -444,12 +491,12 @@ function enterSpace(id, data) {
         face3D.style.display = 'block';
     }
 
-    initSystem().then(() => {
-        setMode('attendance');
-        startDbListener();
-        updateRegistrationForm();
-        init3DFace('face-3d-container');
-    });
+    // Restore sequential initialization
+    initSystem();
+    setMode('attendance');
+    startDbListener();
+    updateRegistrationForm();
+    init3DFace('face-3d-container');
 }
 
 // QR Logic
@@ -569,6 +616,9 @@ function resetTimer(seconds) {
 
 btnPortalJoin.addEventListener('click', handleJoin);
 btnPortalCreate.addEventListener('click', handleCreate);
+if (btnPortalCreateHub) btnPortalCreateHub.addEventListener('click', handleCreateHub);
+if (btnOpenGridHub) btnOpenGridHub.onclick = () => { showView('view-selector'); renderClassroomHub(); };
+if (btnSelectorBack) btnSelectorBack.onclick = () => { showView('view-operation'); setMode('attendance'); };
 btnExitWorkspace.addEventListener('click', () => {
     stopQRRotation();
     currentSpace = null;
@@ -940,8 +990,8 @@ async function initSystem() {
     return initPromise;
 }
 
-// System initialization triggered on app load for faster startup
-initSystem();
+// System initialization will be triggered when entering a space
+// initSystem();
 
 async function startVideo() {
     statusBadge.innerText = "Accessing Camera...";
@@ -2429,6 +2479,7 @@ function setMode(mode) {
         subspacesPanel.classList.remove('hidden');
         document.getElementById('btn-mode-subspaces').classList.add('active');
         statusBadge.innerText = "Sub-Workspaces";
+        if (btnOpenGridHub) btnOpenGridHub.style.display = (currentSpace.isMaster) ? 'block' : 'none';
         renderSubspaces();
     } else {
         isAIPaused = false; // Reactivate background processing
