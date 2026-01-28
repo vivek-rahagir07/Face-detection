@@ -73,10 +73,6 @@ const historySearchInput = document.getElementById('history-search');
 const btnExportHistory = document.getElementById('btn-export-history');
 const tabAbsent = document.getElementById('tab-absent');
 const analyticsPanel = document.getElementById('analytics-panel');
-const subspacesPanel = document.getElementById('subspaces-panel');
-const subspacesList = document.getElementById('subspaces-list');
-const inputSubspaceName = document.getElementById('input-subspace-name');
-const btnCreateSubspace = document.getElementById('btn-create-subspace');
 
 let currentHistoryRecords = [];
 let currentHistoryDate = '';
@@ -154,19 +150,6 @@ const btnConfirmYes = document.getElementById('btn-confirm-yes');
 const btnConfirmNo = document.getElementById('btn-confirm-no');
 const toastContainer = document.getElementById('toast-container');
 
-const viewSelector = document.getElementById('view-selector');
-const hubClassroomList = document.getElementById('hub-classroom-list');
-const btnHubCreate = document.getElementById('btn-hub-create');
-const inputHubNewSpace = document.getElementById('hub-new-space-name');
-const btnBackToHub = document.getElementById('btn-back-to-hub');
-
-const classroomEditModal = document.getElementById('classroom-edit-modal');
-const btnCloseClassroomEdit = document.getElementById('btn-close-classroom-edit');
-const editClassroomNameInput = document.getElementById('edit-classroom-name');
-const btnSaveClassroomEdit = document.getElementById('btn-save-classroom-edit');
-const editClassroomNameTitle = document.getElementById('edit-classroom-name-title');
-
-let editingClassroomId = null;
 
 const mobileSidebar = document.getElementById('mobile-sidebar');
 const btnMobileMenu = document.getElementById('btn-mobile-menu');
@@ -287,7 +270,7 @@ function setupEnterKeys() {
 setupEnterKeys();
 
 function showView(viewId) {
-    [viewPortal, viewOperation, viewSelector].forEach(v => v ? v.classList.add('hidden') : null);
+    [viewPortal, viewOperation].forEach(v => v ? v.classList.add('hidden') : null);
     const target = document.getElementById(viewId);
     if (target) target.classList.remove('hidden');
 }
@@ -324,19 +307,6 @@ async function handleJoin() {
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-            if (name === 'vivek' && password === 'Test123456') {
-                console.log("Auto-creating master account 'vivek'...");
-                const newMaster = await addDoc(collection(db, COLL_SPACES), {
-                    name: "vivek",
-                    password: "Test123456",
-                    isMaster: true,
-                    createdAt: new Date(),
-                    config: { regNo: true, course: true, phone: true }
-                });
-                enterSpace(newMaster.id, { name: "vivek", password: "Test123456", isMaster: true });
-                checkForAutoMigration();
-                return;
-            }
             portalError.innerText = "Workspace not found.";
             btnPortalJoin.innerText = originalText;
             btnPortalJoin.disabled = false;
@@ -355,11 +325,6 @@ async function handleJoin() {
             portalError.innerText = "Incorrect Password.";
             btnPortalJoin.innerText = originalText;
             btnPortalJoin.disabled = false;
-        }
-
-        // --- ACCOUNT AUTOMATION: Ensure 'vivek' exists and handle auto-migration ---
-        if (name === 'vivek' && password === 'Test123456' && found) {
-            checkForAutoMigration();
         }
 
     } catch (err) {
@@ -426,7 +391,62 @@ function enterSpace(id, data) {
         startDbListener();
         updateRegistrationForm();
         init3DFace('face-3d-container');
+        recoverLegacyData(data.name); // Automatically pull data from duplicate workspaces
     });
+}
+
+async function recoverLegacyData(workspaceName) {
+    if (!currentSpace) return;
+    console.log("Checking for legacy data to sync for:", workspaceName);
+
+    try {
+        // 1. Find all spaces with the same name
+        const qSpaces = query(collection(db, COLL_SPACES), where("name", "==", workspaceName));
+        const spaceSnap = await getDocs(qSpaces);
+
+        const otherSpaceIds = [];
+        spaceSnap.forEach(doc => {
+            if (doc.id !== currentSpace.id) {
+                otherSpaceIds.push(doc.id);
+            }
+        });
+
+        if (otherSpaceIds.length === 0) return;
+
+        console.log(`Found ${otherSpaceIds.length} potentially duplicate workspaces. Checking for students...`);
+
+        // 2. For each other space, find users and relink them
+        let relinkCount = 0;
+        for (const oldId of otherSpaceIds) {
+            const qUsers = query(collection(db, COLL_USERS), where("spaceId", "==", oldId));
+            const userSnap = await getDocs(qUsers);
+
+            for (const userDoc of userSnap.docs) {
+                await updateDoc(doc(db, COLL_USERS, userDoc.id), {
+                    spaceId: currentSpace.id
+                });
+                relinkCount++;
+            }
+
+            // Also move attendance records if any
+            const qAtt = query(collection(db, COLL_ATTENDANCE), where("spaceId", "==", oldId));
+            const attSnap = await getDocs(qAtt);
+            for (const attDoc of attSnap.docs) {
+                await updateDoc(doc(db, COLL_ATTENDANCE, attDoc.id), {
+                    spaceId: currentSpace.id
+                });
+            }
+
+            // OPTIONAL: Delete the empty legacy space to prevent future confusion
+            // await deleteDoc(doc(db, COLL_SPACES, oldId));
+        }
+
+        if (relinkCount > 0) {
+            showToast(`Recovered ${relinkCount} students from previous sessions!`, "success");
+        }
+    } catch (e) {
+        console.error("Data recovery failed:", e);
+    }
 }
 
 // QR Logic
@@ -876,8 +896,18 @@ async function initSystem() {
         console.log("System initialization started.");
         loadingOverlay.style.display = "flex";
 
+        // 15-second global timeout for initialization
+        const timeout = setTimeout(() => {
+            if (!isModelsLoaded) {
+                console.warn("System initialization timed out (15s).");
+                loadingText.innerHTML = "Taking too long? <br><small>Try refreshing or check your connection.</small>";
+                // We don't necessarily fail, but we update UI
+            }
+        }, 15000);
+
         if (isModelsLoaded) {
             console.log("Models already loaded.");
+            clearTimeout(timeout);
             if (!video.srcObject) await startVideo();
             else loadingOverlay.style.display = "none";
             return true;
@@ -897,6 +927,8 @@ async function initSystem() {
             console.log("Trying fallback model URL...");
             loaded = await loadModels(FALLBACK_MODEL_URL);
         }
+
+        clearTimeout(timeout);
 
         if (loaded) {
             console.log("Models Loaded. Requesting camera access...");
@@ -1235,10 +1267,12 @@ function updateConfigMapPreview(lat, lng, radius, accuracy = null) {
 // Database Listener
 
 let unsubscribeUsers = null;
+let unsubscribeSpace = null;
 
 function startDbListener() {
     if (!currentSpace) return;
     if (unsubscribeUsers) unsubscribeUsers();
+    if (unsubscribeSpace) unsubscribeSpace();
 
     // Clear previous detection data immediately to ensure isolation
     labeledDescriptors = [];
@@ -1248,6 +1282,15 @@ function startDbListener() {
     todayListContainer.innerHTML = '<div style="padding:10px; text-align:center; color:#888;">Switching workspace...</div>';
 
     const q = query(collection(db, COLL_USERS), where("spaceId", "==", currentSpace.id));
+
+    // Listen to current space updates (for historyDates and config)
+    unsubscribeSpace = onSnapshot(doc(db, COLL_SPACES, currentSpace.id), (snap) => {
+        if (snap.exists()) {
+            const data = snap.data();
+            currentSpace = { id: snap.id, ...data };
+            currentSpaceTitle.innerText = currentSpace.name;
+        }
+    });
 
     unsubscribeUsers = onSnapshot(q, (snapshot) => {
         const descriptors = [];
@@ -1443,10 +1486,8 @@ async function renderPeopleManagement() {
 
     filteredUsers.sort((a, b) => a.name.localeCompare(b.name));
 
-    // Get total days of attendance recorded for this space to calculate percentage
-    const spaceRef = doc(db, COLL_SPACES, currentSpace.id);
-    const spaceSnap = await getDoc(spaceRef);
-    const historyDates = spaceSnap.data().historyDates || {};
+    // Use historyDates from in-memory currentSpace (kept fresh by onSnapshot)
+    const historyDates = currentSpace?.historyDates || {};
     // Calculate max attendance among all users to normalize percentages
     const maxAttendance = Math.max(...allUsersData.map(u => u.attendanceCount || 0), 0);
     const denominator = maxAttendance || 1;
@@ -2398,13 +2439,8 @@ function setMode(mode) {
         document.getElementById('btn-mode-analytics').classList.add('active');
         statusBadge.innerText = "Analytics & Logs";
         renderPeopleManagement();
-    } else if (mode === 'subspaces') {
-        subspacesPanel.classList.remove('hidden');
-        document.getElementById('btn-mode-subspaces').classList.add('active');
-        statusBadge.innerText = "Sub-Workspaces";
-        renderSubspaces();
     } else {
-        isAIPaused = false; // Reactivate background processing
+        isAIPaused = false;
         attendInfo.classList.remove('hidden');
         document.getElementById('btn-mode-attend').classList.add('active');
         statusBadge.innerText = "Attendance Monitor";
@@ -2830,17 +2866,13 @@ function init3DFace(containerId) {
     });
 }
 
-// Manual Consolidation Trigger (Exported for UI)
-// Manual Consolidation Trigger (Exported for UI)
 // End of application logic
-window.triggerManualConsolidation = triggerManualConsolidation;
 
 // Event Listeners for Nav
 document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => {
         const mode = item.getAttribute('data-mode');
-        if (mode === 'subspaces') setMode('subspaces');
-        else if (mode === 'analytics') setMode('analytics');
+        if (mode === 'analytics') setMode('analytics');
         else if (mode === 'reg') setMode('registration');
         else if (mode === 'config') setMode('config');
         else if (mode === 'attend') setMode('attendance');
