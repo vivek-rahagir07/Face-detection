@@ -26,23 +26,17 @@ const COLL_ATTENDANCE = 'attendance';
 const viewPortal = document.getElementById('view-portal');
 const tabJoin = document.getElementById('tab-join');
 const tabCreate = document.getElementById('tab-create');
-const tabHub = document.getElementById('tab-hub');
 const formJoin = document.getElementById('form-join');
 const formCreate = document.getElementById('form-create');
-const formHub = document.getElementById('form-hub');
 const portalJoinName = document.getElementById('portal-join-name');
 const portalJoinPass = document.getElementById('portal-join-pass');
 const portalCreateName = document.getElementById('portal-create-name');
 const portalCreatePass = document.getElementById('portal-create-pass');
-const portalHubName = document.getElementById('portal-hub-name');
-const portalHubPass = document.getElementById('portal-hub-pass');
 const btnPortalJoin = document.getElementById('btn-portal-join');
 const btnPortalCreate = document.getElementById('btn-portal-create');
-const btnPortalCreateHub = document.getElementById('btn-portal-create-hub');
 const portalError = document.getElementById('portal-error');
 const btnPortalContinue = document.getElementById('btn-portal-continue');
 const portalMobileStart = document.getElementById('portal-mobile-start');
-const btnSelectorBack = document.getElementById('btn-selector-back');
 const portalCard = document.querySelector('.portal-card');
 
 
@@ -83,7 +77,6 @@ const subspacesPanel = document.getElementById('subspaces-panel');
 const subspacesList = document.getElementById('subspaces-list');
 const inputSubspaceName = document.getElementById('input-subspace-name');
 const btnCreateSubspace = document.getElementById('btn-create-subspace');
-const btnOpenGridHub = document.getElementById('btn-open-grid-hub');
 
 let currentHistoryRecords = [];
 let currentHistoryDate = '';
@@ -290,21 +283,6 @@ function setupEnterKeys() {
             if (e.key === 'Enter') handleCreate();
         });
     });
-
-    if (portalHubName) portalHubName.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleCreateHub(); });
-    if (portalHubPass) portalHubPass.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleCreateHub(); });
-
-    if (inputHubNewSpace) {
-        inputHubNewSpace.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') createHubSpace();
-        });
-    }
-
-    if (inputSubspaceName) {
-        inputSubspaceName.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') createSubspace();
-        });
-    }
 }
 setupEnterKeys();
 
@@ -315,19 +293,21 @@ function showView(viewId) {
 }
 
 // Tab Switching
-function switchPortalTab(target) {
-    [tabJoin, tabCreate, tabHub].forEach(t => t ? t.classList.remove('active') : null);
-    [formJoin, formCreate, formHub].forEach(f => f ? f.classList.add('hidden') : null);
-
-    if (target === 'join') { tabJoin.classList.add('active'); formJoin.classList.remove('hidden'); }
-    if (target === 'create') { tabCreate.classList.add('active'); formCreate.classList.remove('hidden'); }
-    if (target === 'hub') { tabHub.classList.add('active'); formHub.classList.remove('hidden'); }
+if (tabJoin) tabJoin.addEventListener('click', () => {
+    tabJoin.classList.add('active');
+    tabCreate.classList.remove('active');
+    formJoin.classList.remove('hidden');
+    formCreate.classList.add('hidden');
     portalError.innerText = "";
-}
+});
 
-if (tabJoin) tabJoin.onclick = () => switchPortalTab('join');
-if (tabCreate) tabCreate.onclick = () => switchPortalTab('create');
-if (tabHub) tabHub.onclick = () => switchPortalTab('hub');
+if (tabCreate) tabCreate.addEventListener('click', () => {
+    tabCreate.classList.add('active');
+    tabJoin.classList.remove('active');
+    formCreate.classList.remove('hidden');
+    formJoin.classList.add('hidden');
+    portalError.innerText = "";
+});
 
 async function handleJoin() {
     const name = portalJoinName.value.trim();
@@ -396,11 +376,11 @@ async function handleCreate() {
     if (password.length < 4) return alert("Password too short (min 4)");
 
     const originalText = btnPortalCreate.innerText;
-    btnPortalCreate.innerText = "Initialising...";
+    btnPortalCreate.innerText = "Initializing...";
     btnPortalCreate.disabled = true;
 
     try {
-        console.log("Creating solo workspace:", name);
+        console.log("Creating workspace:", name);
         const q = query(collection(db, COLL_SPACES), where("name", "==", name));
         const snap = await getDocs(q);
         if (!snap.empty) {
@@ -413,61 +393,18 @@ async function handleCreate() {
         const docRef = await addDoc(collection(db, COLL_SPACES), {
             name: name,
             password: password,
-            isMaster: false, // Solo workspaces are not hubs (As earlier)
             createdAt: new Date(),
             config: { regNo: true, course: true, phone: false, voiceEnabled: true }
         });
 
-        console.log("Solo Workspace created:", docRef.id);
-        enterSpace(docRef.id, { name, password, isMaster: false, config: { regNo: true, course: true, phone: false, voiceEnabled: true } });
+        console.log("Workspace created:", docRef.id);
+        enterSpace(docRef.id, { name, password, config: { regNo: true, course: true, phone: false, voiceEnabled: true } });
 
     } catch (err) {
-        console.error("Solo Workspace Creation Error:", err);
+        console.error("Workspace Creation Error:", err);
         alert("Creation Fail: " + err.message);
-        portalError.innerText = "Create Error: " + err.message;
         btnPortalCreate.innerText = originalText;
         btnPortalCreate.disabled = false;
-    }
-}
-
-async function handleCreateHub() {
-    const name = portalHubName.value.trim();
-    const password = portalHubPass.value.trim();
-    if (!name || !password) return alert("Enter hub name and password");
-    if (password.length < 4) return alert("Password too short (min 4)");
-
-    const originalText = btnPortalCreateHub.innerText;
-    btnPortalCreateHub.innerText = "Initialising Hub...";
-    btnPortalCreateHub.disabled = true;
-
-    try {
-        console.log("Creating Classroom Hub:", name);
-        const q = query(collection(db, COLL_SPACES), where("name", "==", name));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-            alert("Hub name already taken!");
-            btnPortalCreateHub.innerText = originalText;
-            btnPortalCreateHub.disabled = false;
-            return;
-        }
-
-        const docRef = await addDoc(collection(db, COLL_SPACES), {
-            name: name,
-            password: password,
-            isMaster: true, // Hubs are masters
-            createdAt: new Date(),
-            config: { regNo: true, course: true, phone: false, voiceEnabled: true }
-        });
-
-        console.log("Hub created:", docRef.id);
-        enterSpace(docRef.id, { name, password, isMaster: true, config: { regNo: true, course: true, phone: false, voiceEnabled: true } });
-
-    } catch (err) {
-        console.error("Hub Creation Error:", err);
-        alert("Hub Creation Fail: " + err.message);
-        portalError.innerText = "Hub Error: " + err.message;
-        btnPortalCreateHub.innerText = originalText;
-        btnPortalCreateHub.disabled = false;
     }
 }
 
@@ -476,14 +413,7 @@ function enterSpace(id, data) {
     currentSpaceTitle.innerText = currentSpace.name;
     portalError.innerText = "";
 
-    // Remember master context if applicable
-    if (currentSpace.isMaster || !currentSpace.parentSpaceId) {
-        masterSpace = { ...currentSpace };
-    }
-
-    // Standard entry flow - Always go to operation view (As earlier)
     showView('view-operation');
-    btnBackToHub.style.display = (currentSpace.parentSpaceId || masterSpace) ? 'block' : 'none';
 
     const face3D = document.getElementById('face-3d-container');
     if (face3D) {
@@ -491,12 +421,12 @@ function enterSpace(id, data) {
         face3D.style.display = 'block';
     }
 
-    // Restore sequential initialization
-    initSystem();
-    setMode('attendance');
-    startDbListener();
-    updateRegistrationForm();
-    init3DFace('face-3d-container');
+    initSystem().then(() => {
+        setMode('attendance');
+        startDbListener();
+        updateRegistrationForm();
+        init3DFace('face-3d-container');
+    });
 }
 
 // QR Logic
@@ -569,9 +499,7 @@ async function startQRRotation() {
 
     await refreshQR();
 
-    // Remove automatic setInterval refresh
-    // const intervalMs = parseInt(currentSpace.config.qrRefreshInterval || 30000);
-    // qrInterval = setInterval(refreshQR, intervalMs);
+
 
     // Listen for scan count updates
     const unsubscribeQr = onSnapshot(doc(db, COLL_SPACES, currentSpace.id), (doc) => {
@@ -616,9 +544,7 @@ function resetTimer(seconds) {
 
 btnPortalJoin.addEventListener('click', handleJoin);
 btnPortalCreate.addEventListener('click', handleCreate);
-if (btnPortalCreateHub) btnPortalCreateHub.addEventListener('click', handleCreateHub);
-if (btnOpenGridHub) btnOpenGridHub.onclick = () => { showView('view-selector'); renderClassroomHub(); };
-if (btnSelectorBack) btnSelectorBack.onclick = () => { showView('view-operation'); setMode('attendance'); };
+
 btnExitWorkspace.addEventListener('click', () => {
     stopQRRotation();
     currentSpace = null;
@@ -2479,7 +2405,6 @@ function setMode(mode) {
         subspacesPanel.classList.remove('hidden');
         document.getElementById('btn-mode-subspaces').classList.add('active');
         statusBadge.innerText = "Sub-Workspaces";
-        if (btnOpenGridHub) btnOpenGridHub.style.display = (currentSpace.isMaster) ? 'block' : 'none';
         renderSubspaces();
     } else {
         isAIPaused = false; // Reactivate background processing
@@ -2910,398 +2835,8 @@ function init3DFace(containerId) {
 
 // Manual Consolidation Trigger (Exported for UI)
 // Manual Consolidation Trigger (Exported for UI)
-async function triggerManualConsolidation() {
-    if (!currentSpace || currentSpace.name !== 'vivek') return;
-    const targets = ["Divya Sharma", "Navodya Prep", "Test", "divya sharma", "navodya", "test"];
-    if (confirm("Consolidate data from legacy workspaces (" + targets.join(", ") + ") into your 'Consolidated Batch' now?")) {
-        await performMerge(targets);
-    }
-}
+// End of application logic
 window.triggerManualConsolidation = triggerManualConsolidation;
-
-// --- Hierarchical Classroom Hub Logic ---
-
-let hubUnsubscribe = null;
-
-async function renderClassroomHub() {
-    if (!currentSpace || (!currentSpace.isMaster && currentSpace.parentSpaceId)) return;
-
-    if (hubUnsubscribe) hubUnsubscribe(); // Cleanup old listener
-
-    masterSpace = { ...currentSpace };
-    hubClassroomList.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">Syncing Hub...</div>';
-
-    const q = query(collection(db, COLL_SPACES), where("parentSpaceId", "==", currentSpace.id));
-
-    hubUnsubscribe = onSnapshot(q, (snap) => {
-        hubClassroomList.innerHTML = '';
-        console.log("Hub snapshot update received.");
-
-        // Add Manual Consolidation Button for 'vivek'
-        if (currentSpace.name === 'vivek') {
-            const adminDiv = document.createElement('div');
-            adminDiv.style = "grid-column: 1/-1; margin-bottom: 20px; display: flex; justify-content: center;";
-            adminDiv.innerHTML = `<button class="btn-secondary btn-sm" onclick="triggerManualConsolidation()" style="border-color: var(--warning); color: var(--warning);">⚡ Consolidate Legacy Data (Test/Navodya/Divya)</button>`;
-            hubClassroomList.appendChild(adminDiv);
-        }
-
-        if (snap.empty) {
-            hubClassroomList.innerHTML = `
-                <div style="grid-column: 1/-1; text-align: center; padding: 20px; background: rgba(255,255,255,0.02); border-radius: 20px;">
-                    <p>No classrooms found. Create your first batch above!</p>
-                </div>
-            `;
-            return;
-        }
-
-        snap.forEach(docSnap => {
-            const data = docSnap.data();
-            const card = document.createElement('div');
-            card.className = 'classroom-card';
-            card.innerHTML = `
-                <div class="card-actions">
-                    <button class="btn-icon-action btn-edit-hub" title="Rename Classroom">✏️</button>
-                    <button class="btn-icon-action delete btn-delete-hub" title="Delete Classroom">🗑️</button>
-                </div>
-                <div>
-                    <h3>${data.name}</h3>
-                    <div class="card-meta">Location: Any</div>
-                    <p style="font-size: 0.8rem; color: var(--text-muted);">Active Batch</p>
-                </div>
-                <button class="btn-enter" id="btn-enter-${docSnap.id}">Enter Classroom ➔</button>
-            `;
-
-            // Add Event Listeners instead of onclick attributes
-            card.querySelector('.btn-edit-hub').onclick = (e) => {
-                e.stopPropagation();
-                openEditClassroomModal(docSnap.id, data.name);
-            };
-            card.querySelector('.btn-delete-hub').onclick = (e) => {
-                e.stopPropagation();
-                deleteClassroom(docSnap.id, data.name);
-            };
-            card.querySelector('.btn-enter').onclick = () => {
-                enterClassroom(docSnap.id);
-            };
-
-            hubClassroomList.appendChild(card);
-        });
-    }, (err) => {
-        console.error("Hub render error:", err);
-        hubClassroomList.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 20px; color: var(--danger);">Sync failed. Please refresh.</div>';
-    });
-}
-
-// Classroom Management Logic
-function openEditClassroomModal(id, currentName) {
-    editingClassroomId = id;
-    if (editClassroomNameInput) editClassroomNameInput.value = currentName;
-    if (editClassroomNameTitle) editClassroomNameTitle.innerText = currentName;
-    if (classroomEditModal) classroomEditModal.classList.remove('hidden');
-}
-window.openEditClassroomModal = openEditClassroomModal;
-
-if (btnCloseClassroomEdit) {
-    btnCloseClassroomEdit.onclick = () => classroomEditModal.classList.add('hidden');
-}
-
-async function updateClassroom() {
-    if (!editingClassroomId) return;
-    const newName = editClassroomNameInput.value.trim();
-    if (!newName) return alert("Please enter a name.");
-
-    if (btnSaveClassroomEdit) {
-        btnSaveClassroomEdit.disabled = true;
-        btnSaveClassroomEdit.innerText = "Saving...";
-    }
-
-    try {
-        await updateDoc(doc(db, COLL_SPACES, editingClassroomId), { name: newName });
-        showToast(`Classroom renamed to: ${newName}`, "success");
-        if (classroomEditModal) classroomEditModal.classList.add('hidden');
-        renderClassroomHub();
-        renderSubspaces();
-
-        // If we renamed the current space, update title
-        if (currentSpace && currentSpace.id === editingClassroomId) {
-            currentSpace.name = newName;
-            if (currentSpaceTitle) currentSpaceTitle.innerText = newName;
-        }
-    } catch (e) {
-        showToast("Rename failed: " + e.message, "error");
-    } finally {
-        if (btnSaveClassroomEdit) {
-            btnSaveClassroomEdit.disabled = false;
-            btnSaveClassroomEdit.innerText = "Save Changes";
-        }
-    }
-}
-window.updateClassroom = updateClassroom;
-
-if (btnSaveClassroomEdit) {
-    btnSaveClassroomEdit.onclick = updateClassroom;
-}
-
-function deleteClassroom(id, name) {
-    if (confirmMessage) {
-        confirmMessage.innerText = `Danger: This will permanently delete the classroom '${name}' and all its configuration. Attendance data and users will NOT be deleted but will lose their workspace link. Continue?`;
-    }
-    if (confirmModal) confirmModal.classList.remove('hidden');
-    confirmCallback = async () => {
-        showToast(`Deleting ${name}...`, "warning");
-        try {
-            await deleteDoc(doc(db, COLL_SPACES, id));
-            showToast(`Deleted classroom: ${name}`, "success");
-            renderClassroomHub();
-            renderSubspaces();
-
-            // If deleted current space, exit
-            if (currentSpace && currentSpace.id === id) {
-                if (btnBackToHub) btnBackToHub.click();
-            }
-        } catch (e) {
-            showToast("Delete failed: " + e.message, "error");
-        }
-    };
-}
-window.deleteClassroom = deleteClassroom;
-
-let subspacesUnsubscribe = null;
-
-async function renderSubspaces() {
-    if (!currentSpace) return;
-
-    if (subspacesUnsubscribe) subspacesUnsubscribe();
-
-    subspacesList.innerHTML = '<div style="padding:10px; text-align:center; color:#888;">Fetching workspaces...</div>';
-
-    const q = query(collection(db, COLL_SPACES), where("parentSpaceId", "==", currentSpace.id));
-
-    subspacesUnsubscribe = onSnapshot(q, (snap) => {
-        subspacesList.innerHTML = '';
-
-        if (snap.empty) {
-            subspacesList.innerHTML = '<div style="padding:10px; text-align:center; color:#888;">No sub-workspaces created.</div>';
-            return;
-        }
-
-        snap.forEach(docSnap => {
-            const data = docSnap.data();
-            const div = document.createElement('div');
-            div.className = 'list-item list-item-new';
-            div.innerHTML = `
-                <div style="flex:1">
-                    <strong>${data.name}</strong>
-                    <div style="font-size:0.7rem; color:var(--text-muted)">Created: ${data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString() : 'N/A'}</div>
-                </div>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <button class="btn-secondary btn-sm btn-edit-sub" style="width:auto; padding:4px; border:none; background:transparent;" title="Rename">✏️</button>
-                    <button class="btn-secondary btn-sm btn-delete-sub" style="width:auto; padding:4px; border:none; background:transparent; color:var(--danger);" title="Delete">🗑️</button>
-                    <button class="btn-primary btn-sm btn-enter-sub" style="width:auto; padding:4px 10px;">Enter</button>
-                </div>
-            `;
-
-            div.querySelector('.btn-edit-sub').onclick = () => openEditClassroomModal(docSnap.id, data.name);
-            div.querySelector('.btn-delete-sub').onclick = () => deleteClassroom(docSnap.id, data.name);
-            div.querySelector('.btn-enter-sub').onclick = () => enterClassroom(docSnap.id);
-
-            subspacesList.appendChild(div);
-        });
-    }, (err) => {
-        console.error("Subspace error:", err);
-        subspacesList.innerHTML = '<div style="padding:10px; text-align:center; color:var(--danger);">Error loading data.</div>';
-    });
-}
-
-async function createSubspace() {
-    if (!currentSpace) return;
-    const name = inputSubspaceName.value.trim();
-    if (!name) return alert("Please enter classroom name.");
-
-    btnCreateSubspace.disabled = true;
-    try {
-        await addDoc(collection(db, COLL_SPACES), {
-            name: name,
-            parentSpaceId: currentSpace.id,
-            password: currentSpace.password,
-            createdAt: new Date(),
-            config: { ...currentSpace.config }
-        });
-        inputSubspaceName.value = '';
-        showToast(`Workspace '${name}' created!`);
-        renderSubspaces();
-    } catch (e) {
-        alert("Fail: " + e.message);
-    } finally {
-        btnCreateSubspace.disabled = false;
-    }
-}
-
-async function enterClassroom(id) {
-    showToast("Entering classroom...");
-    try {
-        const docRef = doc(db, COLL_SPACES, id);
-        const snap = await getDoc(docRef);
-        if (snap.exists()) {
-            const data = snap.data();
-            enterSpace(id, data);
-        }
-    } catch (e) {
-        showToast("Enter fail: " + e.message, "error");
-    }
-}
-window.enterClassroom = enterClassroom;
-
-async function createHubSpace() {
-    if (!currentSpace || (!currentSpace.isMaster && currentSpace.parentSpaceId)) return;
-
-    const name = inputHubNewSpace.value.trim();
-    if (!name) return alert("Enter classroom name");
-
-    btnHubCreate.disabled = true;
-
-    try {
-        await addDoc(collection(db, COLL_SPACES), {
-            name: name,
-            parentSpaceId: currentSpace.id,
-            password: currentSpace.password,
-            createdAt: new Date(),
-            config: { ...currentSpace.config }
-        });
-        inputHubNewSpace.value = '';
-        showToast(`Room created: ${name}`);
-        renderClassroomHub();
-    } catch (err) {
-        alert("Creation error: " + err.message);
-    } finally {
-        btnHubCreate.disabled = false;
-    }
-}
-btnHubCreate.addEventListener('click', createHubSpace);
-
-btnBackToHub.addEventListener('click', () => {
-    if (masterSpace) {
-        enterSpace(masterSpace.id, masterSpace);
-    }
-});
-
-async function checkForAutoMigration() {
-    // Ensure 'vivek' master account exists
-    const q = query(collection(db, COLL_SPACES), where("name", "==", "vivek"), where("password", "==", "Test123456"));
-    const snap = await getDocs(q);
-
-    if (snap.empty) {
-        console.log("Initializing master account 'vivek'...");
-        await addDoc(collection(db, COLL_SPACES), {
-            name: "vivek",
-            password: "Test123456",
-            isMaster: true,
-            createdAt: new Date(),
-            config: { regNo: true, course: true, phone: true }
-        });
-    } else {
-        // Ensure requested classrooms exist
-        const vivekDoc = snap.docs[0];
-        const vivekId = vivekDoc.id;
-        const requiredClassrooms = ["classhub test", "divya sharma", "navodya prep"];
-
-        for (const classroomName of requiredClassrooms) {
-            const cq = query(collection(db, COLL_SPACES),
-                where("parentSpaceId", "==", vivekId),
-                where("name", "==", classroomName));
-            const cSnap = await getDocs(cq);
-
-            if (cSnap.empty) {
-                console.log(`Auto-creating classroom: ${classroomName}`);
-                await addDoc(collection(db, COLL_SPACES), {
-                    name: classroomName,
-                    parentSpaceId: vivekId,
-                    password: vivekDoc.data().password,
-                    createdAt: new Date(),
-                    config: { ...vivekDoc.data().config }
-                });
-            }
-        }
-    }
-
-
-    // Migration for Divya Sharma, Navodya Prep, Test, and lowercase variants
-    const targets = ["Divya Sharma", "Navodya Prep", "Test", "divya sharma", "navodya", "test"];
-    let migrationNeeded = false;
-
-    for (const targetName of targets) {
-        // Query both exact and lowercase if possible (Firestore is case-sensitive, so we check both)
-        const tq = query(collection(db, COLL_SPACES), where("name", "==", targetName));
-        const tSnap = await getDocs(tq);
-        if (!tSnap.empty) {
-            migrationNeeded = true;
-            break;
-        }
-    }
-
-    if (migrationNeeded && confirm("Legacy workspaces (Divya Sharma, Navodya Prep, Test) detected. Merge into 'vivek' consolidated workspace now?")) {
-        performMerge(targets);
-    }
-}
-
-async function performMerge(targetNames) {
-    showToast("Starting data merge...", "warning");
-
-    try {
-        // 1. Ensure a "Consolidated Classroom" exists under vivek
-        const qVivek = query(collection(db, COLL_SPACES), where("name", "==", "vivek"));
-        const vSnap = await getDocs(qVivek);
-        const vivekId = vSnap.docs[0].id;
-
-        const qConsolidated = query(collection(db, COLL_SPACES), where("parentSpaceId", "==", vivekId), where("name", "==", "Consolidated Batch"));
-        const cSnap = await getDocs(qConsolidated);
-        let consId;
-        if (cSnap.empty) {
-            const newCons = await addDoc(collection(db, COLL_SPACES), {
-                name: "Consolidated Batch",
-                parentSpaceId: vivekId,
-                password: "Test123456",
-                createdAt: new Date(),
-                config: { regNo: true, course: true }
-            });
-            consId = newCons.id;
-        } else {
-            consId = cSnap.docs[0].id;
-        }
-
-        // 2. Loop through each target space and move users/attendance
-        for (const targetName of targetNames) {
-            const tq = query(collection(db, COLL_SPACES), where("name", "==", targetName));
-            const tSnap = await getDocs(tq);
-
-            for (const spaceDoc of tSnap.docs) {
-                const oldSpaceId = spaceDoc.id;
-
-                // Move users
-                const uq = query(collection(db, COLL_USERS), where("spaceId", "==", oldSpaceId));
-                const uSnap = await getDocs(uq);
-                for (const userDoc of uSnap.docs) {
-                    await updateDoc(doc(db, COLL_USERS, userDoc.id), { spaceId: consId });
-                }
-
-                // Move attendance
-                const aq = query(collection(db, COLL_ATTENDANCE), where("spaceId", "==", oldSpaceId));
-                const aSnap = await getDocs(aq);
-                for (const attendDoc of aSnap.docs) {
-                    await updateDoc(doc(db, COLL_ATTENDANCE, attendDoc.id), { spaceId: consId });
-                }
-
-                // Delete old space
-                await deleteDoc(doc(db, COLL_SPACES, oldSpaceId));
-            }
-        }
-        showToast("Migration complete! All data merged into 'Consolidated Batch'.", "success");
-        renderSubspaces();
-    } catch (err) {
-        console.error("Merge Error:", err);
-        showToast("Merge failed: " + err.message, "error");
-    }
-}
 
 // Event Listeners for Nav
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -3318,4 +2853,3 @@ document.querySelectorAll('.nav-item').forEach(item => {
         if (sidebar) sidebar.classList.add('hidden');
     });
 });
-btnCreateSubspace.addEventListener('click', createSubspace);
