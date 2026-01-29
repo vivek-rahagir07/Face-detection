@@ -149,7 +149,7 @@
         (function () {
             const preloader = document.getElementById('preloader');
             const startTime = Date.now();
-            const minTime = 1000;
+            const minTime = 3000;
 
             function hide() {
                 const elapsed = Date.now() - startTime;
@@ -231,11 +231,9 @@
         </div>
     </div>
 
-    <!-- Main Operation View -->
+    <!-- Operation -->
     <div id="view-operation" class="operation-container hidden">
         <div class="operation-header">
-            <button id="btn-back-to-hub" class="btn-secondary btn-sm"
-                style="display: none; border-color: var(--accent); color: var(--accent);">🏠 Back to Hub</button>
             <button id="btn-exit-workspace" class="btn-secondary btn-sm" aria-label="Exit Workspace">🚪 Exit
                 Workspace</button>
             <button id="btn-mobile-menu" class="btn-secondary btn-sm mobile-only" aria-label="Open Mobile Menu">☰
@@ -263,7 +261,6 @@
                     <button class="nav-item active" data-mode="attend">🕒 Attendance Monitor</button>
                     <button class="nav-item" data-mode="reg">👤 Student Registration</button>
                     <button class="nav-item" data-mode="analytics">👥 Analytics & Logs</button>
-
                     <button class="nav-item" data-mode="config">⚙️ System Config</button>
                 </div>
                 <div class="sidebar-section">
@@ -325,18 +322,13 @@
 
 
                 <div class="mode-toggle">
-                    <button id="btn-mode-attend" class="btn-secondary nav-item active" data-mode="attend"
-                        title="Attendance Monitor"><span>🕒</span>
+                    <button id="btn-mode-attend" class="btn-secondary active" title="Attendance Monitor"><span>🕒</span>
                         Attend</button>
-                    <button id="btn-mode-reg" class="btn-secondary nav-item" data-mode="reg"
-                        title="Student Registration"><span>👤</span>
+                    <button id="btn-mode-reg" class="btn-secondary" title="Student Registration"><span>👤</span>
                         Reg</button>
-                    <button id="btn-mode-analytics" class="btn-secondary nav-item" data-mode="analytics"
-                        title="Analytics & Logs"><span>👥</span>
+                    <button id="btn-mode-analytics" class="btn-secondary" title="Analytics & Logs"><span>👥</span>
                         Logs</button>
-
-                    <button id="btn-mode-config" class="btn-secondary nav-item" data-mode="config"
-                        title="Configuration"><span>⚙️</span>
+                    <button id="btn-mode-config" class="btn-secondary" title="Configuration"><span>⚙️</span>
                         Config</button>
                 </div>
 
@@ -433,8 +425,6 @@
                 </div>
 
 
-
-
                 <div id="attend-info">
                     <div style="margin-bottom: 15px;">
                         <div class="list-header">
@@ -465,8 +455,6 @@
                     </div>
                     <div id="people-list-container" class="scrollable-list" style="max-height: 350px;"></div>
                 </div>
-
-
             </div>
         </div>
     </div>
@@ -541,6 +529,22 @@
         </div>
     </div>
 
+    <!-- Edit Person Modal -->
+    <div id="edit-modal" class="qr-modal-container hidden" role="dialog" aria-labelledby="edit-modal-title">
+        <div class="qr-modal-content">
+            <button id="btn-close-edit" class="btn-close" aria-label="Close Edit Modal">&times;</button>
+            <h3 id="edit-modal-title">Edit Discovery</h3>
+            <p>Update information for <span id="edit-person-name-title">Person</span></p>
+            <div class="form-group" style="margin-top: 20px;">
+                <input type="text" id="edit-name" placeholder="Full Name">
+                <input type="text" id="edit-regNo" placeholder="Registration Number">
+                <input type="text" id="edit-course" placeholder="Course / Department">
+                <button id="btn-save-edit" class="btn-primary">Save Changes</button>
+                <button id="btn-delete-person" class="btn-secondary"
+                    style="color: var(--danger); border-color: var(--danger);">Delete Record</button>
+            </div>
+        </div>
+    </div>
 
 
     <div id="confirm-modal" class="qr-modal-container hidden" style="z-index: 10001;">

@@ -71,18 +71,20 @@ const historyTableBody = document.getElementById('history-table-body');
 const historyStatus = document.getElementById('history-status');
 const historySearchInput = document.getElementById('history-search');
 const btnExportHistory = document.getElementById('btn-export-history');
+const tabPresent = document.getElementById('tab-present');
 const tabAbsent = document.getElementById('tab-absent');
-const analyticsPanel = document.getElementById('analytics-panel');
+
 
 let currentHistoryRecords = [];
 let currentHistoryDate = '';
+
+
 
 let currentMode = 'attendance';
 let currentSpace = null;
 let labeledDescriptors = [];
 let faceMatcher = null;
 let isModelsLoaded = false;
-let initPromise = null;
 let nameToDocId = {};
 const attendanceCooldowns = {};
 let allUsersData = [];
@@ -94,8 +96,8 @@ let lastPresentHTML = '';
 let lastAbsentHTML = '';
 
 const smoothBoxes = {};
+
 const LERP_FACTOR = 0.4;
-let masterSpace = null;
 
 const qrModal = document.getElementById('qr-modal');
 const btnQrPresence = document.getElementById('btn-qr-presence');
@@ -104,23 +106,24 @@ const qrImage = document.getElementById('qr-image');
 const qrTimerDisplay = document.getElementById('qr-timer');
 const qrStatus = document.getElementById('qr-status');
 const qrScanCountDisplay = document.getElementById('qr-scan-count');
+const configQrRefresh = document.getElementById('config-qr-refresh');
 const qrExpiredOverlay = document.getElementById('qr-expired-overlay');
 const btnRefreshQr = document.getElementById('btn-refresh-qr');
 
+
+const analyticsPanel = document.getElementById('analytics-panel');
 const peopleListContainer = document.getElementById('people-list-container');
 const peopleSearchInput = document.getElementById('people-search');
 
+
 let isMagicLinkSession = false;
 let isAIPaused = false;
+const btnModeAnalytics = document.getElementById('btn-mode-analytics');
 const configGeoEnabled = document.getElementById('config-geo-enabled');
 const configGeoRadius = document.getElementById('config-geo-radius');
 const btnSetLocation = document.getElementById('btn-set-location');
 const geoStatus = document.getElementById('geo-status');
-const configQrRefresh = document.getElementById('config-qr-refresh');
-const btnGenerateMagic = document.getElementById('btn-generate-magic');
-const btnCopyMagic = document.getElementById('btn-copy-magic');
-const magicLinkInput = document.getElementById('magic-link-input');
-const magicLinkContainer = document.getElementById('magic-link-container');
+
 
 const editModal = document.getElementById('edit-modal');
 const btnCloseEdit = document.getElementById('btn-close-edit');
@@ -142,6 +145,7 @@ const profileHistoryList = document.getElementById('profile-history-list');
 const profileHistoryStatus = document.getElementById('profile-history-status');
 
 let editingPersonId = null;
+
 
 const confirmModal = document.getElementById('confirm-modal');
 const confirmMessage = document.getElementById('confirm-message');
@@ -250,24 +254,6 @@ try {
 
 // Portal Management
 
-function setupEnterKeys() {
-    const joinInputs = [portalJoinName, portalJoinPass];
-    const createInputs = [portalCreateName, portalCreatePass];
-
-    joinInputs.forEach(input => {
-        if (input) input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') handleJoin();
-        });
-    });
-
-    createInputs.forEach(input => {
-        if (input) input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') handleCreate();
-        });
-    });
-}
-setupEnterKeys();
-
 function showView(viewId) {
     [viewPortal, viewOperation].forEach(v => v ? v.classList.add('hidden') : null);
     const target = document.getElementById(viewId);
@@ -280,7 +266,6 @@ if (tabJoin) tabJoin.addEventListener('click', () => {
     tabCreate.classList.remove('active');
     formJoin.classList.remove('hidden');
     formCreate.classList.add('hidden');
-    portalError.innerText = "";
 });
 
 if (tabCreate) tabCreate.addEventListener('click', () => {
@@ -288,7 +273,6 @@ if (tabCreate) tabCreate.addEventListener('click', () => {
     tabJoin.classList.remove('active');
     formCreate.classList.remove('hidden');
     formJoin.classList.add('hidden');
-    portalError.innerText = "";
 });
 
 async function handleJoin() {
@@ -301,7 +285,6 @@ async function handleJoin() {
     btnPortalJoin.disabled = true;
 
     try {
-        console.log("Joining workspace:", name);
         const q = query(collection(db, COLL_SPACES), where("name", "==", name));
         const querySnapshot = await getDocs(q);
 
@@ -325,7 +308,6 @@ async function handleJoin() {
             btnPortalJoin.innerText = originalText;
             btnPortalJoin.disabled = false;
         }
-
     } catch (err) {
         portalError.innerText = "Error: " + err.message;
         btnPortalJoin.innerText = originalText;
@@ -340,15 +322,14 @@ async function handleCreate() {
     if (password.length < 4) return alert("Password too short (min 4)");
 
     const originalText = btnPortalCreate.innerText;
-    btnPortalCreate.innerText = "Initializing...";
+    btnPortalCreate.innerText = "Initialising...";
     btnPortalCreate.disabled = true;
 
     try {
-        console.log("Creating workspace:", name);
         const q = query(collection(db, COLL_SPACES), where("name", "==", name));
         const snap = await getDocs(q);
         if (!snap.empty) {
-            alert("Workspace name already taken!");
+            alert("Name already taken!");
             btnPortalCreate.innerText = originalText;
             btnPortalCreate.disabled = false;
             return;
@@ -358,15 +339,12 @@ async function handleCreate() {
             name: name,
             password: password,
             createdAt: new Date(),
-            config: { regNo: true, course: true, phone: false, voiceEnabled: true }
+            config: { regNo: true, course: true, phone: false }
         });
 
-        console.log("Workspace created:", docRef.id);
-        enterSpace(docRef.id, { name, password, config: { regNo: true, course: true, phone: false, voiceEnabled: true } });
-
+        enterSpace(docRef.id, { name, password, config: { regNo: true, course: true, phone: false } });
     } catch (err) {
-        console.error("Workspace Creation Error:", err);
-        alert("Creation Fail: " + err.message);
+        portalError.innerText = "Create Error: " + err.message;
         btnPortalCreate.innerText = originalText;
         btnPortalCreate.disabled = false;
     }
@@ -376,8 +354,8 @@ function enterSpace(id, data) {
     currentSpace = { id, ...data };
     currentSpaceTitle.innerText = currentSpace.name;
     portalError.innerText = "";
-
     showView('view-operation');
+
 
     const face3D = document.getElementById('face-3d-container');
     if (face3D) {
@@ -385,67 +363,11 @@ function enterSpace(id, data) {
         face3D.style.display = 'block';
     }
 
-    initSystem().then(() => {
-        setMode('attendance');
-        startDbListener();
-        updateRegistrationForm();
-        init3DFace('face-3d-container');
-        recoverLegacyData(data.name); // Automatically pull data from duplicate workspaces
-    });
-}
-
-async function recoverLegacyData(workspaceName) {
-    if (!currentSpace) return;
-    console.log("Checking for legacy data to sync for:", workspaceName);
-
-    try {
-        // 1. Find all spaces with the same name
-        const qSpaces = query(collection(db, COLL_SPACES), where("name", "==", workspaceName));
-        const spaceSnap = await getDocs(qSpaces);
-
-        const otherSpaceIds = [];
-        spaceSnap.forEach(doc => {
-            if (doc.id !== currentSpace.id) {
-                otherSpaceIds.push(doc.id);
-            }
-        });
-
-        if (otherSpaceIds.length === 0) return;
-
-        console.log(`Found ${otherSpaceIds.length} potentially duplicate workspaces. Checking for students...`);
-
-        // 2. For each other space, find users and relink them
-        let relinkCount = 0;
-        for (const oldId of otherSpaceIds) {
-            const qUsers = query(collection(db, COLL_USERS), where("spaceId", "==", oldId));
-            const userSnap = await getDocs(qUsers);
-
-            for (const userDoc of userSnap.docs) {
-                await updateDoc(doc(db, COLL_USERS, userDoc.id), {
-                    spaceId: currentSpace.id
-                });
-                relinkCount++;
-            }
-
-            // Also move attendance records if any
-            const qAtt = query(collection(db, COLL_ATTENDANCE), where("spaceId", "==", oldId));
-            const attSnap = await getDocs(qAtt);
-            for (const attDoc of attSnap.docs) {
-                await updateDoc(doc(db, COLL_ATTENDANCE, attDoc.id), {
-                    spaceId: currentSpace.id
-                });
-            }
-
-            // OPTIONAL: Delete the empty legacy space to prevent future confusion
-            // await deleteDoc(doc(db, COLL_SPACES, oldId));
-        }
-
-        if (relinkCount > 0) {
-            showToast(`Recovered ${relinkCount} students from previous sessions!`, "success");
-        }
-    } catch (e) {
-        console.error("Data recovery failed:", e);
-    }
+    initSystem();
+    setMode('attendance');
+    startDbListener();
+    updateRegistrationForm();
+    init3DFace('face-3d-container');
 }
 
 // QR Logic
@@ -518,7 +440,9 @@ async function startQRRotation() {
 
     await refreshQR();
 
-
+    // Remove automatic setInterval refresh
+    // const intervalMs = parseInt(currentSpace.config.qrRefreshInterval || 30000);
+    // qrInterval = setInterval(refreshQR, intervalMs);
 
     // Listen for scan count updates
     const unsubscribeQr = onSnapshot(doc(db, COLL_SPACES, currentSpace.id), (doc) => {
@@ -563,7 +487,6 @@ function resetTimer(seconds) {
 
 btnPortalJoin.addEventListener('click', handleJoin);
 btnPortalCreate.addEventListener('click', handleCreate);
-
 btnExitWorkspace.addEventListener('click', () => {
     stopQRRotation();
     currentSpace = null;
@@ -613,7 +536,7 @@ sideNavItems.forEach(item => {
     item.addEventListener('click', () => {
         const mode = item.dataset.mode;
         // Trigger the corresponding mode button click
-        const targetBtn = document.getElementById(`btn-mode-${mode}`);
+        const targetBtn = document.getElementById(`btn-mode-${mode === 'attend' ? 'attend' : mode === 'reg' ? 'reg' : mode === 'analytics' ? 'analytics' : 'config'}`);
         if (targetBtn) targetBtn.click();
 
         // Update active state in sidebar
@@ -862,26 +785,22 @@ if (btnExportHistory) {
 // 4. FACE API & CAMERA
 // ==========================================
 
-const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models/';
+const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
 // Fallback URL if the primary one fails
 const FALLBACK_MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/';
 
 async function loadModels(url) {
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Loading timeout (15s)")), 15000));
     try {
-        if (!video.srcObject) statusBadge.innerText = "Loading Models...";
-        loadingText.innerText = `AI: Syncing from ${url.includes('github') ? 'GitHub' : 'CDN'}`;
+        statusBadge.innerText = "Loading Models...";
+        loadingText.innerText = `Loading AI models from ${url.includes('github') ? 'GitHub' : 'CDN'}...`;
 
-        const loadPromise = Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri(url),
+        await Promise.all([
+            faceapi.nets.ssdMobilenetv1.loadFromUri(url),
             faceapi.nets.faceLandmark68Net.loadFromUri(url),
             faceapi.nets.faceRecognitionNet.loadFromUri(url)
         ]);
 
-        await Promise.race([loadPromise, timeout]);
-
         console.log("Models Loaded successfully from", url);
-        if (isModelsLoaded) loadingOverlay.style.display = "none";
         return true;
     } catch (err) {
         console.warn(`Failed to load models from ${url}:`, err);
@@ -890,146 +809,116 @@ async function loadModels(url) {
 }
 
 async function initSystem() {
-    if (initPromise) return initPromise;
+    if (isModelsLoaded) {
+        if (!video.srcObject) startVideo();
+        return;
+    }
+    console.log("Initializing Attendance SystemAI...");
 
-    initPromise = (async () => {
-        console.log("System initialization started.");
-        loadingOverlay.style.display = "flex";
-        loadingText.innerText = "Initializing Hardware...";
-
-        // PART 1: Start Camera IMMEDIATELY (Immediate prompt)
-        const cameraPromise = startVideo();
-
-        // PART 2: Load Models in context
-        const modelPromise = (async () => {
-            if (isModelsLoaded) return true;
-
-            if (window.location.protocol === 'file:') {
-                console.warn("Running on file:// protocol. Fetch may be blocked.");
+    // Check if we are on file:// protocol, which often breaks modules/fetch
+    if (window.location.protocol === 'file:') {
+        console.warn("Running on file:// protocol. This may cause CORS issues with module imports and fetch requests.");
+        // Try to explain to the user if it gets stuck
+        setTimeout(() => {
+            if (!isModelsLoaded) {
+                loadingText.innerHTML = "Stuck Loading? <br><small>Browsers often block local file access. <br>Try opening this folder in VS Code and using 'Live Server'.</small>";
             }
+        }, 8000);
+    }
 
-            let loaded = await loadModels(MODEL_URL);
-            if (!loaded) {
-                console.log("Trying fallback model URL...");
-                loaded = await loadModels(FALLBACK_MODEL_URL);
-            }
+    let loaded = await loadModels(MODEL_URL);
+    if (!loaded) {
+        console.log("Trying fallback model URL...");
+        loaded = await loadModels(FALLBACK_MODEL_URL);
+    }
 
-            if (loaded) {
-                isModelsLoaded = true;
-                return true;
-            }
-            return false;
-        })();
+    if (loaded) {
+        console.log("Models Loaded. Requesting camera access...");
+        isModelsLoaded = true;
+        loadingText.innerText = "Requesting Camera Access...";
+        startVideo();
+    } else {
+        loadingText.innerHTML = "Error: Could not load AI models. <br><small>Please check your internet connection.</small>";
+        statusBadge.innerText = "Load Error";
+        statusBadge.className = "status-badge status-error";
 
-        // Wait for camera first to show stream, but models can proceed
-        const cameraStarted = await cameraPromise;
-
-        // If camera failed, we stop here
-        if (!cameraStarted && !video.srcObject) {
-            loadingText.innerHTML = "Hardware Error: Camera Access Denied.";
-            initPromise = null;
-            return false;
-        }
-
-        // If models still loading, update text but don't block UI if camera is up
-        const modelsLoaded = await modelPromise;
-        if (!modelsLoaded) {
-            loadingText.innerHTML = "Error: Could not load AI models.";
-            statusBadge.innerText = "AI Error";
-            return false;
-        }
-
-        console.log("System fully ready.");
-        loadingOverlay.style.display = "none";
-        return true;
-    })();
-
-    return initPromise;
+        // Add a retry button to the UI
+        const retryBtn = document.createElement('button');
+        retryBtn.innerText = "Retry Loading";
+        retryBtn.className = "btn-primary";
+        retryBtn.style.marginTop = "10px";
+        retryBtn.onclick = () => window.location.reload();
+        loadingOverlay.appendChild(retryBtn);
+    }
 }
 
 // System initialization will be triggered when entering a space
 // initSystem();
 
-async function startVideo() {
+function startVideo() {
     statusBadge.innerText = "Accessing Camera...";
-    console.log("Requesting camera...");
 
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        return handleCameraError(new Error("Your browser does not support camera access or you are in a non-secure (HTTP) context."));
-    }
+    const constraints = {
+        video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            aspectRatio: 1.777777778,
+            facingMode: "user"
+        }
+    };
 
-    const constraintsList = [
-        { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" } },
-        { video: { facingMode: "user" } },
-        { video: true }
-    ];
-
-    let lastErr = null;
-    for (const constraints of constraintsList) {
-        try {
-            console.log("Trying constraints:", constraints);
-            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    navigator.mediaDevices.getUserMedia(constraints)
+        .then(stream => {
             console.log("Camera access granted.");
             video.srcObject = stream;
+            // Wait for video to actually start playing
+            video.onloadedmetadata = () => {
+                video.play().then(() => {
+                    console.log("Video playing.");
+                    loadingOverlay.style.display = "none";
 
-            video.onloadedmetadata = () => playVideo();
+                    // Fade out 3D face after video starts
+                    const face3D = document.getElementById('face-3d-container');
+                    if (face3D) {
+                        face3D.classList.add('fade-out');
+                        setTimeout(() => face3D.style.display = 'none', 800);
+                    }
 
-            // Backup check
-            setTimeout(() => {
-                if (video.paused && video.srcObject) playVideo();
-            }, 1000);
-            return true;
-        } catch (err) {
-            lastErr = err;
-            console.warn("Constraint failed:", constraints, err);
-        }
-    }
+                    statusBadge.innerText = "System Active";
+                    statusBadge.className = "status-badge status-ready";
+                }).catch(err => {
+                    console.error("Video Play Error:", err);
+                    loadingText.innerHTML = "Click to Start Camera";
+                    // Add a button since some browsers block auto-play
+                    const startBtn = document.createElement('button');
+                    startBtn.innerText = "Start Camera";
+                    startBtn.className = "btn-primary";
+                    startBtn.onclick = () => {
+                        video.play();
+                        loadingOverlay.style.display = "none";
+                        statusBadge.innerText = "System Active";
+                    };
+                    loadingOverlay.appendChild(startBtn);
+                });
+            };
+        })
+        .catch(err => {
+            console.error("Camera Error:", err);
+            loadingText.innerHTML = "Camera Access Denied <br><small>Please enable camera in your browser settings.</small>";
+            statusBadge.innerText = "Camera Error";
+            statusBadge.className = "status-badge status-error";
 
-    return handleCameraError(lastErr || new Error("Unknown camera error"));
-}
+            // Show overlay with error color
+            loadingOverlay.style.background = "rgba(120, 0, 0, 0.9)";
 
-function playVideo() {
-    video.play().then(() => {
-        console.log("Video playing successfully.");
-        loadingOverlay.style.display = "none";
-
-        const face3D = document.getElementById('face-3d-container');
-        if (face3D) {
-            face3D.classList.add('fade-out');
-            setTimeout(() => face3D.style.display = 'none', 800);
-        }
-
-        statusBadge.innerText = "System Active";
-        statusBadge.className = "status-badge status-ready";
-    }).catch(err => {
-        console.error("Video Play Error:", err);
-        loadingText.innerHTML = "Click to Start Camera";
-        const startBtn = document.createElement('button');
-        startBtn.innerText = "Start Camera";
-        startBtn.className = "btn-primary";
-        startBtn.onclick = () => {
-            video.play();
-            loadingOverlay.style.display = "none";
-            statusBadge.innerText = "System Active";
-            startBtn.remove();
-        };
-        loadingOverlay.appendChild(startBtn);
-    });
-}
-
-function handleCameraError(err) {
-    loadingText.innerHTML = `Camera Access Issue <br><small>${err.message || 'Please enable camera in settings.'}</small>`;
-    statusBadge.innerText = "Camera Error";
-    statusBadge.className = "status-badge status-error";
-    loadingOverlay.style.background = "rgba(120, 0, 0, 0.9)";
-
-    const helpBtn = document.createElement('button');
-    helpBtn.innerText = "How to fix?";
-    helpBtn.className = "btn-secondary mobile-only";
-    helpBtn.style.marginTop = "10px";
-    helpBtn.onclick = () => alert("1. Click the lock icon in the address bar.\n2. Ensure Camera is set to 'Allow'.\n3. Refresh the page.");
-    loadingOverlay.appendChild(helpBtn);
-    return false;
+            // Add a troubleshooting button
+            const helpBtn = document.createElement('button');
+            helpBtn.innerText = "How to fix?";
+            helpBtn.className = "btn-secondary";
+            helpBtn.style.marginTop = "10px";
+            helpBtn.onclick = () => alert("1. Click the lock icon in the address bar.\n2. Ensure Camera is set to 'Allow'.\n3. Refresh the page.");
+            loadingOverlay.appendChild(helpBtn);
+        });
 }
 
 
@@ -1267,12 +1156,10 @@ function updateConfigMapPreview(lat, lng, radius, accuracy = null) {
 // Database Listener
 
 let unsubscribeUsers = null;
-let unsubscribeSpace = null;
 
 function startDbListener() {
     if (!currentSpace) return;
     if (unsubscribeUsers) unsubscribeUsers();
-    if (unsubscribeSpace) unsubscribeSpace();
 
     // Clear previous detection data immediately to ensure isolation
     labeledDescriptors = [];
@@ -1282,15 +1169,6 @@ function startDbListener() {
     todayListContainer.innerHTML = '<div style="padding:10px; text-align:center; color:#888;">Switching workspace...</div>';
 
     const q = query(collection(db, COLL_USERS), where("spaceId", "==", currentSpace.id));
-
-    // Listen to current space updates (for historyDates and config)
-    unsubscribeSpace = onSnapshot(doc(db, COLL_SPACES, currentSpace.id), (snap) => {
-        if (snap.exists()) {
-            const data = snap.data();
-            currentSpace = { id: snap.id, ...data };
-            currentSpaceTitle.innerText = currentSpace.name;
-        }
-    });
 
     unsubscribeUsers = onSnapshot(q, (snapshot) => {
         const descriptors = [];
@@ -1486,8 +1364,10 @@ async function renderPeopleManagement() {
 
     filteredUsers.sort((a, b) => a.name.localeCompare(b.name));
 
-    // Use historyDates from in-memory currentSpace (kept fresh by onSnapshot)
-    const historyDates = currentSpace?.historyDates || {};
+    // Get total days of attendance recorded for this space to calculate percentage
+    const spaceRef = doc(db, COLL_SPACES, currentSpace.id);
+    const spaceSnap = await getDoc(spaceRef);
+    const historyDates = spaceSnap.data().historyDates || {};
     // Calculate max attendance among all users to normalize percentages
     const maxAttendance = Math.max(...allUsersData.map(u => u.attendanceCount || 0), 0);
     const denominator = maxAttendance || 1;
@@ -1699,9 +1579,6 @@ function drawCustomFaceBox(ctx, box, label, isMatch, confidence, resultLabel) {
     const { x, y, width, height } = box;
     const isUnknown = resultLabel === 'unknown';
     const color = isMatch ? '#22c55e' : (isUnknown ? '#ef4444' : '#10b981');
-
-    // Formatting label: Red for Unknown, Name + % for Matches
-    const displayLabel = isUnknown ? "UNKNOWN FACE DETECTED" : (isMatch ? `${label.toUpperCase()} (${confidence}%)` : "ID: " + label.toUpperCase());
     const cornerSize = 30;
     const padding = 15;
 
@@ -1753,9 +1630,9 @@ function drawCustomFaceBox(ctx, box, label, isMatch, confidence, resultLabel) {
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        ctx.font = '800 11px Inter';
+        ctx.font = '800 10px Inter';
         ctx.fillStyle = color;
-        ctx.fillText(displayLabel, baseRadius + 15, 0);
+        ctx.fillText(label.toUpperCase(), baseRadius + 15, 0);
 
         // Ring 2: ID
         ctx.rotate(-hudRotation * 1.5);
@@ -1798,7 +1675,7 @@ function drawCustomFaceBox(ctx, box, label, isMatch, confidence, resultLabel) {
         ctx.rotate(Math.PI / 2);
         ctx.font = '900 9px monospace';
         ctx.fillStyle = color;
-        const bioText = isUnknown ? "UNKNOWN_ACCESS_DENIED" : `BIOSEC_${label.slice(0, 3).toUpperCase()}_${Math.floor(Date.now() / 1000).toString().slice(-4)}`;
+        const bioText = isMatch ? `BIOSEC_${label.slice(0, 3).toUpperCase()}_${Math.floor(Date.now() / 1000).toString().slice(-4)}` : "ENCRYPTION_ERROR";
         ctx.fillText(bioText, 0, -5);
 
         ctx.restore();
@@ -1851,9 +1728,8 @@ function drawFaceMesh(ctx, landmarks, color = '#10b981') {
 
     ctx.beginPath();
     points.forEach((p, i) => {
-        // Create a denser grid for matches
-        const lookAhead = color === '#22c55e' ? 8 : 4;
-        for (let j = i + 1; j < i + lookAhead && j < points.length; j++) {
+
+        for (let j = i + 1; j < i + 4 && j < points.length; j++) {
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(points[j].x, points[j].y);
         }
@@ -1943,7 +1819,7 @@ video.addEventListener('play', () => {
                 updateDisplaySize();
             }
 
-            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
+            const detections = await faceapi.detectAllFaces(video)
                 .withFaceLandmarks()
                 .withFaceDescriptors();
 
@@ -2023,7 +1899,7 @@ video.addEventListener('play', () => {
 
                 const box = detection.detection.box;
                 const confidence = Math.round((1 - result.distance) * 100);
-                const isAttendanceMatch = result.label !== 'unknown' && result.distance <= 0.45;
+                const isAttendanceMatch = result.label !== 'unknown' && result.distance <= 0.6;
                 const isPotentialMatch = result.label !== 'unknown' && result.distance <= 0.6;
                 const displayLabel = isPotentialMatch ? result.label : 'SEARCHING...';
 
@@ -2262,13 +2138,6 @@ async function markAttendance(name) {
             setTimeout(() => wrapper.classList.remove('success-pulse'), 400);
         }
 
-        // Auto-open QR Presence after biometric recognition
-        if (qrModal && qrModal.classList.contains('hidden')) {
-            isAIPaused = true;
-            qrModal.classList.remove('hidden');
-            startQRRotation();
-        }
-
     } catch (err) {
         console.error("Attendance Update Error:", err);
     }
@@ -2361,9 +2230,10 @@ if (configGeoRadius) {
 
 // UI Handlers
 
-// Basic Navigation Listeners (Standardized via .nav-item at bottom)
-
-// Attendance Tabs
+document.getElementById('btn-mode-attend').addEventListener('click', () => setMode('attendance'));
+document.getElementById('btn-mode-reg').addEventListener('click', () => setMode('registration'));
+document.getElementById('btn-mode-analytics').addEventListener('click', () => setMode('analytics'));
+document.getElementById('btn-mode-config').addEventListener('click', () => setMode('config'));
 
 const mobileNavItems = document.querySelectorAll('.nav-item');
 mobileNavItems.forEach(item => {
@@ -2384,6 +2254,11 @@ const btnExportHistoryPdf = document.getElementById('btn-export-history-pdf');
 if (btnExportHistoryPdf) btnExportHistoryPdf.addEventListener('click', exportHistoryToPDF);
 
 // Magic Link Event Listeners
+const btnGenerateMagic = document.getElementById('btn-generate-magic');
+const magicLinkContainer = document.getElementById('magic-link-container');
+const magicLinkInput = document.getElementById('magic-link-input');
+const btnCopyMagic = document.getElementById('btn-copy-magic');
+
 if (btnGenerateMagic) {
     btnGenerateMagic.addEventListener('click', () => {
         if (!currentSpace) return alert("Enter a workspace first");
@@ -2415,37 +2290,34 @@ window.addEventListener('load', async () => {
 function setMode(mode) {
     currentMode = mode;
 
-    // UI elements update: hide all and remove active from all nav items
+    // UI elements update
     [regForm, attendInfo, configForm, analyticsPanel].forEach(el => el && el.classList.add('hidden'));
-    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
-
-    // Map internal mode names to data-mode values for consistency
-    const modeMapping = {
-        'registration': 'reg',
-        'config': 'config',
-        'analytics': 'analytics',
-        'attendance': 'attend'
-    };
-    const dataMode = modeMapping[mode] || mode;
-
-    // Set active class on corresponding nav items (including mobile sidebar)
-    document.querySelectorAll(`.nav-item[data-mode="${dataMode}"]`).forEach(btn => btn.classList.add('active'));
+    [
+        document.getElementById('btn-mode-attend'),
+        document.getElementById('btn-mode-reg'),
+        document.getElementById('btn-mode-config'),
+        document.getElementById('btn-mode-analytics')
+    ].forEach(btn => btn && btn.classList.remove('active'));
 
     if (mode === 'registration') {
         regForm.classList.remove('hidden');
+        document.getElementById('btn-mode-reg').classList.add('active');
         statusBadge.innerText = "Student Registration";
         updateRegistrationForm();
     } else if (mode === 'config') {
         configForm.classList.remove('hidden');
+        document.getElementById('btn-mode-config').classList.add('active');
         statusBadge.innerText = "Configuration";
         syncConfigToggles();
     } else if (mode === 'analytics') {
         analyticsPanel.classList.remove('hidden');
+        document.getElementById('btn-mode-analytics').classList.add('active');
         statusBadge.innerText = "Analytics & Logs";
         renderPeopleManagement();
     } else {
-        isAIPaused = false;
+        isAIPaused = false; // Reactivate background processing
         attendInfo.classList.remove('hidden');
+        document.getElementById('btn-mode-attend').classList.add('active');
         statusBadge.innerText = "Attendance Monitor";
     }
 }
@@ -2868,21 +2740,3 @@ function init3DFace(containerId) {
         renderer3D.setSize(container.offsetWidth, container.offsetHeight);
     });
 }
-
-// End of application logic
-
-// Event Listeners for Nav
-document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', () => {
-        const mode = item.getAttribute('data-mode');
-        if (!mode) return; // For icons/other nav items without data-mode
-
-        if (mode === 'analytics') setMode('analytics');
-        else if (mode === 'reg') setMode('registration');
-        else if (mode === 'config') setMode('config');
-        else if (mode === 'attend') setMode('attendance');
-
-        // Close sidebar and overlay on mobile
-        toggleSidebar(false);
-    });
-});
