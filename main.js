@@ -342,10 +342,10 @@ async function handleCreate() {
             name: name,
             password: password,
             createdAt: new Date(),
-            config: { regNo: true, course: true, phone: false, voiceEnabled: true, biometricEnabled: true }
+            config: { regNo: true, course: true, phone: false, voiceEnabled: true }
         });
 
-        enterSpace(docRef.id, { name, password, config: { regNo: true, course: true, phone: false, voiceEnabled: true, biometricEnabled: true } });
+        enterSpace(docRef.id, { name, password, config: { regNo: true, course: true, phone: false, voiceEnabled: true } });
     } catch (err) {
         portalError.innerText = "Create Error: " + err.message;
         btnPortalCreate.innerText = originalText;

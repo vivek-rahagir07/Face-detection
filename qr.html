@@ -415,8 +415,8 @@
 
         <div id="success-view" style="display: none;">
             <div style="font-size: 4rem; color: var(--success); margin-bottom: 20px;">⚡</div>
-            <h2 style="color: var(--success); margin-bottom: 10px;">Presence Session Active!</h2>
-            <p>Your biometric data is being securely verified. Keep this window open.</p>
+            <h2 style="color: var(--success); margin-bottom: 10px;">Attendance Marked!</h2>
+            <p>Your attendance has been securely logged.</p>
         </div>
 
         <div id="error-view" style="display: none;">
@@ -601,47 +601,7 @@
             }
         }
 
-        async function verifyBiometric(biometric) {
-            if (!window.isSecureContext) {
-                throw new Error("Biometric verification requires a SECURE CONNECTION (HTTPS).");
-            }
-            if (!window.PublicKeyCredential) {
-                throw new Error("Biometric authentication not supported on this device/browser.");
-            }
 
-            try {
-                // check for platform authenticator
-                const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-                if (!available) {
-                    throw new Error("No biometric hardware detected on this device.");
-                }
-
-                // Decode base64url if needed, or use directly if stored as string ID
-                const idBuffer = Uint8Array.from(atob(biometric.credentialId.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-                const challenge = new Uint8Array(32);
-                window.crypto.getRandomValues(challenge);
-
-                const publicKeyCredentialRequestOptions = {
-                    challenge: challenge,
-                    allowCredentials: [{
-                        id: idBuffer,
-                        type: 'public-key',
-                    }],
-                    userVerification: 'required', // Match the registration requirement
-                };
-
-                const assertion = await navigator.credentials.get({
-                    publicKey: publicKeyCredentialRequestOptions
-                });
-                return !!assertion;
-            } catch (err) {
-                console.error("Biometric verification failure:", err);
-                if (err.name === 'NotAllowedError') {
-                    throw new Error("Verification cancelled or timed out.");
-                }
-                throw new Error("Biometric verification failed: " + err.message);
-            }
-        }
 
         function getDistance(lat1, lon1, lat2, lon2) {
             const R = 6371e3;
@@ -822,15 +782,8 @@
                         throw new Error("Your profile is pending approval. Please talk to an admin.");
                     }
 
-                    // MATCH FOUND -> CHECK BIOMETRIC
-                    const isBiometricEnabledByAdmin = spaceData.config && spaceData.config.biometricEnabled !== false;
-                    if (isBiometricEnabledByAdmin && userData.biometric) {
-                        showStatus("Touch Biometric Sensor to verify identity...", "");
-                        await verifyBiometric(userData.biometric);
-                    }
-
                     if (userData.lastAttendance === todayStr) {
-                        showStatus("Identity verified. Presence already logged.", "success");
+                        showStatus("Attendance already logged.", "success");
                         finishSubmit(name, gender, spaceData);
                         return;
                     }
