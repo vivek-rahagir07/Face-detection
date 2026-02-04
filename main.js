@@ -1,4 +1,4 @@
-// Import Firebase Modules (Modular SDK 11.6.1)
+// Imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, collection, addDoc, updateDoc, doc, getDoc, onSnapshot, increment, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -6,7 +6,7 @@ import { firebaseConfig } from "./firebase-config.js";
 
 
 
-// --- PWA Service Worker Registration ---
+// PWA
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
@@ -96,6 +96,9 @@ let lastPresentHTML = '';
 let lastAbsentHTML = '';
 
 const smoothBoxes = {};
+
+const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+const FALLBACK_MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/';
 
 const LERP_FACTOR = 0.4;
 
@@ -339,10 +342,10 @@ async function handleCreate() {
             name: name,
             password: password,
             createdAt: new Date(),
-            config: { regNo: true, course: true, phone: false }
+            config: { regNo: true, course: true, phone: false, voiceEnabled: true, biometricEnabled: true }
         });
 
-        enterSpace(docRef.id, { name, password, config: { regNo: true, course: true, phone: false } });
+        enterSpace(docRef.id, { name, password, config: { regNo: true, course: true, phone: false, voiceEnabled: true, biometricEnabled: true } });
     } catch (err) {
         portalError.innerText = "Create Error: " + err.message;
         btnPortalCreate.innerText = originalText;
@@ -370,7 +373,7 @@ function enterSpace(id, data) {
     init3DFace('face-3d-container');
 }
 
-// QR Logic
+// QR
 async function startQRRotation() {
     if (!currentSpace) return;
     stopQRRotation();
@@ -781,13 +784,7 @@ if (btnExportHistory) {
     });
 }
 
-// ==========================================
-// 4. FACE API & CAMERA
-// ==========================================
-
-const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
-// Fallback URL if the primary one fails
-const FALLBACK_MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/';
+// Models
 
 async function loadModels(url) {
     try {
@@ -852,18 +849,17 @@ async function initSystem() {
     }
 }
 
-// System initialization will be triggered when entering a space
-// initSystem();
+// Init
 
 function startVideo() {
     statusBadge.innerText = "Accessing Camera...";
 
+    // Simplified constraints for better compatibility
     const constraints = {
         video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            aspectRatio: 1.777777778,
-            facingMode: "user"
+            facingMode: "user",
+            width: { ideal: isMobile ? 640 : 1280 },
+            height: { ideal: isMobile ? 480 : 720 }
         }
     };
 
@@ -893,6 +889,7 @@ function startVideo() {
                     const startBtn = document.createElement('button');
                     startBtn.innerText = "Start Camera";
                     startBtn.className = "btn-primary";
+                    startBtn.style.marginTop = "15px";
                     startBtn.onclick = () => {
                         video.play();
                         loadingOverlay.style.display = "none";
@@ -904,25 +901,38 @@ function startVideo() {
         })
         .catch(err => {
             console.error("Camera Error:", err);
-            loadingText.innerHTML = "Camera Access Denied <br><small>Please enable camera in your browser settings.</small>";
+            loadingText.innerHTML = `<span style="color:#ef4444; font-weight:800;">Hardware Error</span><br><small>${err.message}</small>`;
             statusBadge.innerText = "Camera Error";
             statusBadge.className = "status-badge status-error";
 
             // Show overlay with error color
-            loadingOverlay.style.background = "rgba(120, 0, 0, 0.9)";
+            loadingOverlay.style.background = "rgba(10, 0, 0, 0.9)";
+
+            // Add a retry button
+            const retryBtn = document.createElement('button');
+            retryBtn.innerText = "Retry Camera Access";
+            retryBtn.className = "btn-primary";
+            retryBtn.style.marginTop = "15px";
+            retryBtn.onclick = () => startVideo();
 
             // Add a troubleshooting button
             const helpBtn = document.createElement('button');
-            helpBtn.innerText = "How to fix?";
+            helpBtn.innerText = "Troubleshoot Guide";
             helpBtn.className = "btn-secondary";
             helpBtn.style.marginTop = "10px";
             helpBtn.onclick = () => alert("1. Click the lock icon in the address bar.\n2. Ensure Camera is set to 'Allow'.\n3. Refresh the page.");
+
+            // Clear old buttons if any
+            const existingBtns = loadingOverlay.querySelectorAll('button');
+            existingBtns.forEach(b => b.remove());
+
+            loadingOverlay.appendChild(retryBtn);
             loadingOverlay.appendChild(helpBtn);
         });
 }
 
 
-// Space Config & Form
+// Config
 
 function updateRegistrationForm() {
     if (!currentSpace) return;
@@ -1082,7 +1092,12 @@ function syncConfigToggles() {
     if (!currentSpace) return;
     const config = currentSpace.config || {};
     document.querySelectorAll('.field-toggle').forEach(el => {
-        el.checked = !!config[el.dataset.field];
+        const field = el.dataset.field;
+        if (field === 'biometricEnabled' || field === 'voiceEnabled') {
+            el.checked = config[field] !== false;
+        } else {
+            el.checked = !!config[field];
+        }
     });
 
     const gf = currentSpace.geofencing || {};
@@ -1153,7 +1168,7 @@ function updateConfigMapPreview(lat, lng, radius, accuracy = null) {
     configLeafletMap.invalidateSize();
 }
 
-// Database Listener
+// DB
 
 let unsubscribeUsers = null;
 
@@ -1573,7 +1588,7 @@ if (btnDeletePerson) {
     };
 }
 
-// Drawing Utils
+// Drawing
 
 function drawCustomFaceBox(ctx, box, label, isMatch, confidence, resultLabel) {
     const { x, y, width, height } = box;
@@ -1749,7 +1764,7 @@ function drawFaceMesh(ctx, landmarks, color = '#10b981') {
     ctx.globalAlpha = 1.0;
 }
 
-// Audio Engine
+// Audio
 const CyberAudio = {
     ctx: null,
     init() {
@@ -1790,7 +1805,7 @@ const CyberAudio = {
 
 let wasFaceDetected = false;
 
-// Main Loop
+// Main
 
 video.addEventListener('play', () => {
 
@@ -1879,7 +1894,7 @@ video.addEventListener('play', () => {
 
     detectionLoop();
 
-    // --- Drawing Loop (requestAnimationFrame) ---
+    // Animate
     function animate() {
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -2185,7 +2200,7 @@ async function unmarkAttendance(uid, name) {
     });
 }
 
-// Geofencing
+// Geo
 if (btnSetLocation) {
     btnSetLocation.addEventListener('click', () => {
         if (!navigator.geolocation) {
@@ -2228,7 +2243,7 @@ if (configGeoRadius) {
     });
 }
 
-// UI Handlers
+// UI
 
 document.getElementById('btn-mode-attend').addEventListener('click', () => setMode('attendance'));
 document.getElementById('btn-mode-reg').addEventListener('click', () => setMode('registration'));
@@ -2254,10 +2269,20 @@ const btnExportHistoryPdf = document.getElementById('btn-export-history-pdf');
 if (btnExportHistoryPdf) btnExportHistoryPdf.addEventListener('click', exportHistoryToPDF);
 
 // Magic Link Event Listeners
+// Magic Link Event Listeners
 const btnGenerateMagic = document.getElementById('btn-generate-magic');
+const btnProjectMagic = document.getElementById('btn-project-magic');
 const magicLinkContainer = document.getElementById('magic-link-container');
 const magicLinkInput = document.getElementById('magic-link-input');
 const btnCopyMagic = document.getElementById('btn-copy-magic');
+
+const magicQrModal = document.getElementById('magic-qr-modal');
+const btnCloseMagicQr = document.getElementById('btn-close-magic-qr');
+const magicQrImage = document.getElementById('magic-qr-image');
+const magicQrTimer = document.getElementById('magic-qr-timer');
+const magicQrSpaceName = document.getElementById('magic-qr-space-name');
+
+let magicQrInterval = null;
 
 if (btnGenerateMagic) {
     btnGenerateMagic.addEventListener('click', () => {
@@ -2270,6 +2295,64 @@ if (btnGenerateMagic) {
         magicLinkContainer.classList.remove('hidden');
         btnGenerateMagic.innerText = "🔄 Regenerated";
     });
+}
+
+if (btnProjectMagic) {
+    btnProjectMagic.addEventListener('click', showMagicQR);
+}
+
+if (btnCloseMagicQr) {
+    btnCloseMagicQr.addEventListener('click', () => {
+        magicQrModal.classList.add('hidden');
+        if (magicQrInterval) clearInterval(magicQrInterval);
+    });
+}
+
+async function showMagicQR() {
+    if (!currentSpace) return alert("Space ID not found");
+
+    magicQrSpaceName.innerText = currentSpace.name || "Workspace";
+    let baseUrl = window.location.href.split('?')[0].split('#')[0].replace('index.html', '');
+    if (!baseUrl.endsWith('/')) baseUrl += '/';
+
+    const duration = 5 * 60 * 1000;
+    const expiresAt = Date.now() + duration;
+    const url = `${baseUrl}register.html?s=${currentSpace.id}&exp=${expiresAt}`;
+
+    // Generate QR
+    const qrEngine = window.QRCode || (typeof QRCode !== 'undefined' ? QRCode : null);
+    if (qrEngine && qrEngine.toDataURL) {
+        qrEngine.toDataURL(url, {
+            width: 500,
+            margin: 2,
+            errorCorrectionLevel: 'H'
+        }, (err, dataUrl) => {
+            if (err) console.error(err);
+            magicQrImage.src = dataUrl;
+        });
+    } else {
+        magicQrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(url)}`;
+    }
+
+    magicQrModal.classList.remove('hidden');
+
+    // Timer
+    if (magicQrInterval) clearInterval(magicQrInterval);
+
+    const updateTimer = () => {
+        const remaining = Math.max(0, expiresAt - Date.now());
+        const mins = Math.floor(remaining / 60000);
+        const secs = Math.floor((remaining % 60000) / 1000);
+        magicQrTimer.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+        if (remaining <= 0) {
+            clearInterval(magicQrInterval);
+            magicQrTimer.style.color = "var(--danger)";
+        }
+    };
+
+    updateTimer();
+    magicQrInterval = setInterval(updateTimer, 1000);
 }
 
 if (btnCopyMagic) {
@@ -2405,7 +2488,7 @@ async function exportToExcel() {
             csvContent += row.map(cell => `"${cell}"`).join(",") + "\n";
         });
 
-        // 5. Build CSV Summary Row (Daily Totals)
+        // Summary
         const summaryRow = ["DAILY TOTALS", "", "", "", "", ""];
         sortedDates.forEach(date => {
             summaryRow.push(dateTotals[date] || 0);
@@ -2464,7 +2547,7 @@ async function exportToPDF() {
         doc.text(`Workspace: ${currentSpace.name}`, 14, 30);
         doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 36);
 
-        // 4. Table Setup
+        // Table
         const tableHeaders = ["Name", "Reg No", "Course", "Present", "Pct", ...sortedDates.map(d => d.split('-').slice(1).reverse().join('/'))];
         const tableData = [];
 
@@ -2546,7 +2629,7 @@ async function exportHistoryToPDF() {
 
 setMode('attendance');
 
-// 3D Animation Section
+// 3D
 function init3DFace(containerId) {
     const container = document.getElementById(containerId);
     if (!container || container.dataset.initialized) return;
@@ -2702,7 +2785,7 @@ function init3DFace(containerId) {
     spotlight.position.set(10, 10, 10);
     scene3D.add(spotlight);
 
-    // --- Animation ---
+    // Animation
     let time = 0;
     function animate() {
         requestAnimationFrame(animate);

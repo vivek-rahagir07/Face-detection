@@ -5,10 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QR Presence | CognitoAttend</title>
-    <meta name="description"
-        content="Securely mark your attendance using the CognitoAttend QR scanner. Fast, biometric-linked verification for authorized workspaces.">
-    <meta name="keywords" content="QR attendance, mark presence, CognitoAttend QR, biometric scanner">
-    <link rel="canonical" href="https://cognitoattend.com/qr.html">
+    <title>QR Presence</title>
 
     <!-- Open Graph -->
     <meta property="og:title" content="QR Presence | CognitoAttend">
@@ -604,6 +601,48 @@
             }
         }
 
+        async function verifyBiometric(biometric) {
+            if (!window.isSecureContext) {
+                throw new Error("Biometric verification requires a SECURE CONNECTION (HTTPS).");
+            }
+            if (!window.PublicKeyCredential) {
+                throw new Error("Biometric authentication not supported on this device/browser.");
+            }
+
+            try {
+                // check for platform authenticator
+                const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+                if (!available) {
+                    throw new Error("No biometric hardware detected on this device.");
+                }
+
+                // Decode base64url if needed, or use directly if stored as string ID
+                const idBuffer = Uint8Array.from(atob(biometric.credentialId.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+                const challenge = new Uint8Array(32);
+                window.crypto.getRandomValues(challenge);
+
+                const publicKeyCredentialRequestOptions = {
+                    challenge: challenge,
+                    allowCredentials: [{
+                        id: idBuffer,
+                        type: 'public-key',
+                    }],
+                    userVerification: 'required', // Match the registration requirement
+                };
+
+                const assertion = await navigator.credentials.get({
+                    publicKey: publicKeyCredentialRequestOptions
+                });
+                return !!assertion;
+            } catch (err) {
+                console.error("Biometric verification failure:", err);
+                if (err.name === 'NotAllowedError') {
+                    throw new Error("Verification cancelled or timed out.");
+                }
+                throw new Error("Biometric verification failed: " + err.message);
+            }
+        }
+
         function getDistance(lat1, lon1, lat2, lon2) {
             const R = 6371e3;
             const φ1 = lat1 * Math.PI / 180;
@@ -728,7 +767,7 @@
             showStatus("Verifying Identity<span class=\"loading-dots\"></span>", "");
 
             try {
-                // 1. Verify Space and Nonce
+                // Auth
                 const spaceRef = doc(db, 'spaces', spaceId);
                 const spaceSnap = await getDoc(spaceRef);
 
@@ -736,7 +775,7 @@
                 const spaceData = spaceSnap.data();
                 if (spaceData.qrNonce !== nonce) throw new Error("Link expired. Please scan again.");
 
-                // Check Geofencing
+                // Geo
                 if (spaceData.geofencing && spaceData.geofencing.enabled && spaceData.geofencing.center) {
                     showStatus("Calibrating High-Precision GPS...", "");
                     const pos = await getHighPrecisionLocation(5000).catch(err => {
@@ -759,7 +798,7 @@
                     }
                 }
 
-                // Standard Mode: Process Attendance
+                // Attendance
                 await updateDoc(spaceRef, { qrScanCount: increment(1) });
 
                 const config = spaceData.config || {};
@@ -778,6 +817,17 @@
                 if (!userSnap.empty) {
                     const userDoc = userSnap.docs[0];
                     const userData = userDoc.data();
+
+                    if (userData.approved === false) {
+                        throw new Error("Your profile is pending approval. Please talk to an admin.");
+                    }
+
+                    // MATCH FOUND -> CHECK BIOMETRIC
+                    const isBiometricEnabledByAdmin = spaceData.config && spaceData.config.biometricEnabled !== false;
+                    if (isBiometricEnabledByAdmin && userData.biometric) {
+                        showStatus("Touch Biometric Sensor to verify identity...", "");
+                        await verifyBiometric(userData.biometric);
+                    }
 
                     if (userData.lastAttendance === todayStr) {
                         showStatus("Identity verified. Presence already logged.", "success");
@@ -798,11 +848,11 @@
                     });
 
                     await recordAttendanceHistory(userDoc.id, name, regNo || userData.regNo || '', course || userData.course || '', gender);
+                    finishSubmit(name, gender, spaceData);
                 } else {
-                    throw new Error("You are not registered. Please talk to an admin.");
+                    // USER NOT FOUND
+                    throw new Error("No person found please contact admin");
                 }
-
-                finishSubmit(name, gender, spaceData);
             } catch (err) {
                 showStatus(err.message, "error");
                 btnSubmit.disabled = false;
