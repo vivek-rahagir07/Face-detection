@@ -813,7 +813,7 @@
         }
 
         async function recordAttendanceHistory(userId, name, regNo, course, gender) {
-            const dateId = new Date().toISOString().split('T')[0];
+            const dateId = getLocalYYYYMMDD();
             await addDoc(collection(db, 'attendance'), {
                 spaceId: spaceId,
                 userId: userId,
@@ -827,6 +827,11 @@
             await updateDoc(doc(db, 'spaces', spaceId), {
                 [`historyDates.${dateId}`]: true
             });
+        }
+
+        function getLocalYYYYMMDD() {
+            const d = new Date();
+            return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
         }
 
         function finishSubmit(name, gender, spaceData) {

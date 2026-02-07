@@ -721,7 +721,9 @@ async function openHistoryModal() {
             btn.className = 'btn-date';
 
             // Format date for display: "14 Jan 2026"
-            const d = new Date(date);
+            // Use manual split to avoid UTC shift issues with new Date(date)
+            const parts = date.split('-');
+            const d = new Date(parts[0], parts[1] - 1, parts[2]);
             const displayDate = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
             btn.innerText = displayDate;
@@ -834,12 +836,11 @@ if (btnExportHistory) {
             const time = r.timestamp ? (r.timestamp.toDate ? r.timestamp.toDate() : new Date(r.timestamp)).toLocaleTimeString() : 'N/A';
             csv += `"${r.name}","${r.regNo || ''}","${r.course || ''}","${time}"\n`;
         });
-
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `attendance_${currentSpace.name.replace(/\s+/g, '_')}_${currentHistoryDate}.csv`;
+        link.download = `attendance_${currentSpace.name.replace(/\s+/g, '_')}_${currentHistoryDate || getLocalYYYYMMDD()}.csv`;
         link.click();
     });
 }
@@ -1294,6 +1295,7 @@ function startDbListener() {
         let presentAttendeesHTML = '';
         let absentAttendeesHTML = '';
         const todayStr = new Date().toDateString();
+        const localToday = getLocalYYYYMMDD();
 
         snapshot.forEach(doc => {
             const data = doc.data();
@@ -1371,7 +1373,7 @@ function startDbListener() {
         lastAbsentHTML = absentAttendeesHTML;
 
         // Automatically update history if we are viewing today's records
-        if (currentHistoryDate === todayStr) {
+        if (currentHistoryDate === localToday) {
             // Filter allUsersData for today's records based on lastAttendance
             const todayRecords = tempAllData.filter(u => u.lastAttendance === todayStr);
             // Sort by name as done in loadHistoryForDate
@@ -1385,35 +1387,53 @@ function startDbListener() {
             if (btnExportHistoryPdf) btnExportHistoryPdf.style.display = showBtns;
         }
 
+        // Proactive check: Ensure today's date exists in historyDates if there's presence
+        if (presentTodayCount > 0 && currentSpace) {
+            const spaceRef = doc(db, COLL_SPACES, currentSpace.id);
+            getDoc(spaceRef).then(snap => {
+                if (snap.exists()) {
+                    const historyDates = snap.data().historyDates || {};
+                    if (!historyDates[localToday]) {
+                        console.log("Fixing missing history date:", localToday);
+                        updateDoc(spaceRef, { [`historyDates.${localToday}`]: true });
+                    }
+                }
+            });
+        }
+
         // Render based on active tab
         renderAttendanceList();
         renderPeopleManagement();
     });
+}
 
-    // Add event delegation for manual marking
-    if (!todayListContainer._listenerAdded) {
-        todayListContainer.addEventListener('click', (e) => {
-            const btnMark = e.target.closest('.btn-mark-present');
-            const btnUndo = e.target.closest('.btn-undo-attendance');
+function getLocalYYYYMMDD() {
+    const d = new Date();
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+}
+// Add event delegation for manual marking
+if (!todayListContainer._listenerAdded) {
+    todayListContainer.addEventListener('click', (e) => {
+        const btnMark = e.target.closest('.btn-mark-present');
+        const btnUndo = e.target.closest('.btn-undo-attendance');
 
-            if (btnMark) {
-                const item = btnMark.closest('.list-item');
-                const uid = item.dataset.uid;
-                const name = item.dataset.name;
-                if (uid && name) {
-                    markAttendance(name);
-                }
-            } else if (btnUndo) {
-                const item = btnUndo.closest('.list-item');
-                const uid = item.dataset.uid;
-                const name = item.dataset.name;
-                if (uid && name) {
-                    unmarkAttendance(uid, name);
-                }
+        if (btnMark) {
+            const item = btnMark.closest('.list-item');
+            const uid = item.dataset.uid;
+            const name = item.dataset.name;
+            if (uid && name) {
+                markAttendance(name);
             }
-        });
-        todayListContainer._listenerAdded = true;
-    }
+        } else if (btnUndo) {
+            const item = btnUndo.closest('.list-item');
+            const uid = item.dataset.uid;
+            const name = item.dataset.name;
+            if (uid && name) {
+                unmarkAttendance(uid, name);
+            }
+        }
+    });
+    todayListContainer._listenerAdded = true;
 }
 
 function renderAttendanceList() {
@@ -2223,11 +2243,28 @@ async function markAttendance(name) {
             return;
         }
 
-        // Perform the update first to ensure data integrity
-        await updateDoc(userDocRef, {
-            lastAttendance: todayDate,
-            attendanceCount: increment(1)
-        });
+        // Save to History Collection
+        const dateId = getLocalYYYYMMDD();
+
+        // Push both updates - order matters: ensure history exists before or with user update
+        await Promise.all([
+            addDoc(collection(db, COLL_ATTENDANCE), {
+                spaceId: currentSpace.id,
+                userId: docId,
+                name: name,
+                regNo: userData.regNo || '',
+                course: userData.course || '',
+                date: dateId,
+                timestamp: new Date()
+            }),
+            updateDoc(doc(db, COLL_SPACES, currentSpace.id), {
+                [`historyDates.${dateId}`]: true
+            }),
+            updateDoc(userDocRef, {
+                lastAttendance: todayDate,
+                attendanceCount: increment(1)
+            })
+        ]);
 
         // ONLY AFTER SUCCESS: Mark cooldown and perform side effects
         attendanceCooldowns[name] = now;
@@ -2238,8 +2275,6 @@ async function markAttendance(name) {
         // Trigger Digital ID Card
         showIdCard(userData);
 
-        // Live log already added above
-
         const nowSpoken = Date.now();
         const lastTimeSpoken = lastSpoken[name] || 0;
         // 2 second buffer for the same person to avoid accidental double-speak
@@ -2248,22 +2283,6 @@ async function markAttendance(name) {
             speak(`${name} present`, gender);
             lastSpoken[name] = nowSpoken;
         }
-
-        // Save to History Collection
-        const dateId = new Date().toISOString().split('T')[0];
-        await addDoc(collection(db, COLL_ATTENDANCE), {
-            spaceId: currentSpace.id,
-            userId: docId,
-            name: name,
-            regNo: userData.regNo || '',
-            course: userData.course || '',
-            date: dateId,
-            timestamp: new Date()
-        });
-
-        await updateDoc(doc(db, COLL_SPACES, currentSpace.id), {
-            [`historyDates.${dateId}`]: true
-        });
 
         const wrapper = document.querySelector('.camera-wrapper');
         if (wrapper) {
@@ -2291,7 +2310,7 @@ async function unmarkAttendance(uid, name) {
             });
 
             // Remove from History Collection for today
-            const dateId = new Date().toISOString().split('T')[0];
+            const dateId = getLocalYYYYMMDD();
             const q = query(
                 collection(db, COLL_ATTENDANCE),
                 where("spaceId", "==", currentSpace.id),
@@ -2617,7 +2636,7 @@ async function exportToExcel() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `Master_Attendance_${currentSpace.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+        link.download = `Master_Attendance_${currentSpace.name.replace(/\s+/g, '_')}_${getLocalYYYYMMDD()}.csv`;
         link.click();
 
         showToast("Master Report Exported!");
