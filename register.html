@@ -583,6 +583,7 @@
                 feedback.innerText = cameraOk ? "Ready to scan face" : "Camera Access Required";
                 feedback.style.color = cameraOk ? "#10b981" : "#ef4444";
                 isReady = true;
+                loadingOverlay.style.display = 'none';
                 if (cameraOk) requestAnimationFrame(processFrame);
 
             } catch (err) {

@@ -892,6 +892,15 @@ async function initSystem() {
         if (modelsLoaded) {
             console.log("Models and Hardware ready.");
             isModelsLoaded = true;
+            // Reveal UI immediately when both are ready
+            loadingOverlay.style.display = "none";
+            const face3D = document.getElementById('face-3d-container');
+            if (face3D) {
+                face3D.classList.add('fade-out');
+                setTimeout(() => face3D.style.display = 'none', 800);
+            }
+            statusBadge.innerText = "System Active";
+            statusBadge.className = "status-badge status-ready";
         } else {
             throw new Error("Could not load AI models.");
         }
@@ -953,7 +962,7 @@ function startVideo() {
                         resolve(true);
 
                         // If models are already loaded, we can actually hide it
-                        if (isModelsLoaded) {
+                        if (isModelsLoaded || !loadingOverlay.style.display || loadingOverlay.style.display === "none") {
                             loadingOverlay.style.display = "none";
                             const face3D = document.getElementById('face-3d-container');
                             if (face3D) {
