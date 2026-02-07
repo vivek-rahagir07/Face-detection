@@ -1371,6 +1371,12 @@ function startDbListener() {
             });
         }
 
+        // Run one-time sync for this session if not already done
+        if (!currentSpace._historySynced) {
+            syncHistoryDates();
+            currentSpace._historySynced = true;
+        }
+
         // Render based on active tab
         renderAttendanceList();
         renderPeopleManagement();
@@ -1380,6 +1386,47 @@ function startDbListener() {
 function getLocalYYYYMMDD() {
     const d = new Date();
     return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+}
+
+async function syncHistoryDates() {
+    if (!currentSpace) return;
+    console.log("Starting History Sync for:", currentSpace.name);
+    try {
+        const q = query(collection(db, COLL_ATTENDANCE), where("spaceId", "==", currentSpace.id));
+        const snap = await getDocs(q);
+        const uniqueDates = new Set();
+        snap.forEach(doc => {
+            const data = doc.data();
+            if (data.date) uniqueDates.add(data.date);
+        });
+
+        if (uniqueDates.size === 0) return;
+
+        const spaceRef = doc(db, COLL_SPACES, currentSpace.id);
+        const spaceSnap = await getDoc(spaceRef);
+        if (!spaceSnap.exists()) return;
+
+        const historyDates = spaceSnap.data().historyDates || {};
+        let needsUpdate = false;
+        const updates = {};
+
+        uniqueDates.forEach(date => {
+            if (!historyDates[date]) {
+                console.log("Found missing history date:", date);
+                updates[`historyDates.${date}`] = true;
+                needsUpdate = true;
+            }
+        });
+
+        if (needsUpdate) {
+            await updateDoc(spaceRef, updates);
+            console.log("History Index Repaired successfully.");
+        } else {
+            console.log("History Index is already healthy.");
+        }
+    } catch (err) {
+        console.error("History Sync Failed:", err);
+    }
 }
 // Add event delegation for manual marking
 if (!todayListContainer._listenerAdded) {
