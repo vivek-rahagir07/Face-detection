@@ -806,6 +806,20 @@ sideNavItems.forEach(item => {
     });
 });
 
+const mobilePanelHandle = document.getElementById('mobile-panel-handle');
+if (mobilePanelHandle) {
+    mobilePanelHandle.addEventListener('click', () => {
+        const panel = document.querySelector('.controls-panel');
+        if (panel) {
+            panel.classList.toggle('active');
+            // Accessibility & Audio
+            if (termAudio) {
+                panel.classList.contains('active') ? termAudio.playTone(600, 0.1) : termAudio.playTone(400, 0.1);
+            }
+        }
+    });
+}
+
 if (sideBtnQr) sideBtnQr.addEventListener('click', () => {
     btnQrPresence.click();
     toggleSidebar(false);
@@ -3179,6 +3193,12 @@ function setMode(mode) {
         attendInfo.classList.remove('hidden');
         document.getElementById('btn-mode-attend').classList.add('active');
         statusBadge.innerText = "Attendance Monitor";
+    }
+
+    // Expand panel on mobile when mode changes
+    if (window.innerWidth <= 600) {
+        const panel = document.querySelector('.controls-panel');
+        if (panel) panel.classList.add('active');
     }
 }
 
